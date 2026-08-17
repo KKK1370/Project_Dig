@@ -232,7 +232,7 @@ namespace BornToDig.EditorTools
 
         private static void CreatePlayerCamera(Vector3 target)
         {
-            GameObject cameraObject = new GameObject("Player Camera");
+            GameObject cameraObject = new GameObject("Main Camera");
             cameraObject.tag = "MainCamera";
             Camera camera = cameraObject.AddComponent<Camera>();
             cameraObject.AddComponent<AudioListener>();
@@ -240,13 +240,18 @@ namespace BornToDig.EditorTools
             cameraObject.transform.LookAt(target);
 
             MiningTool miningTool = cameraObject.AddComponent<MiningTool>();
-            miningTool.Configure(camera, 4f, 0.2f, 0.75f);
-
-            Type existingController = Type.GetType("FlyCameraController, Assembly-CSharp");
-            if (existingController != null &&
-                typeof(MonoBehaviour).IsAssignableFrom(existingController))
+            if (VoxelRockFpsCompatibility.TryCreateExistingFpsPlayer())
             {
-                cameraObject.AddComponent(existingController);
+                miningTool.Configure(camera, 4f, 0.2f, 0.75f, false, true);
+                return;
+            }
+
+            // Fallback for a project that does not contain FpsCharacterMVP.
+            miningTool.Configure(camera, 4f, 0.2f, 0.75f, true, false);
+            Type flyController = Type.GetType("FlyCameraController, Assembly-CSharp");
+            if (flyController != null && typeof(MonoBehaviour).IsAssignableFrom(flyController))
+            {
+                cameraObject.AddComponent(flyController);
             }
         }
 

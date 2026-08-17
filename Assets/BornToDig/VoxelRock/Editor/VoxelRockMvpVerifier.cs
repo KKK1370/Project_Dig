@@ -23,6 +23,8 @@ namespace BornToDig.EditorTools
                 throw new InvalidOperationException("MVP scene is missing the rock, mining tool, or camera.");
             }
 
+            VerifyFpsCompatibility(tool, camera);
+
             rock.Initialize();
             MeshFilter filter = rock.GetComponent<MeshFilter>();
             MeshCollider collider = rock.GetComponent<MeshCollider>();
@@ -41,12 +43,25 @@ namespace BornToDig.EditorTools
             int initialVertices = filter.sharedMesh.vertexCount;
             int initialTriangles = filter.sharedMesh.triangles.Length / 3;
             Ray centerRay = camera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
+            float verificationDistance = Vector3.Distance(
+                camera.transform.position,
+                collider.bounds.center) + collider.bounds.extents.magnitude + 1f;
+            int maximumAttempts = Mathf.Max(
+                24,
+                Mathf.CeilToInt(collider.bounds.size.z / 0.05f));
             Physics.SyncTransforms();
 
             RaycastHit hit;
-            if (!Physics.Raycast(centerRay, out hit, 4f) || hit.collider != collider)
+            bool hitAnything = Physics.Raycast(centerRay, out hit, verificationDistance);
+            if (!hitAnything || hit.collider != collider)
             {
-                throw new InvalidOperationException("The camera center ray did not hit the voxel rock.");
+                string hitDescription = hitAnything
+                    ? $"hit={hit.collider.name} at {hit.distance:F3}m"
+                    : "hit=nothing";
+                throw new InvalidOperationException(
+                    "The camera center ray did not hit the voxel rock. " +
+                    $"{hitDescription}, camera={camera.transform.position}, " +
+                    $"forward={camera.transform.forward}, rockBounds={collider.bounds}");
             }
 
             float firstDistance = hit.distance;
@@ -54,9 +69,10 @@ namespace BornToDig.EditorTools
             int successfulHits = 0;
             bool penetrated = false;
 
-            for (int attempt = 0; attempt < 24; attempt++)
+            for (int attempt = 0; attempt < maximumAttempts; attempt++)
             {
-                if (!Physics.Raycast(centerRay, out hit, 4f) || hit.collider != collider)
+                if (!Physics.Raycast(centerRay, out hit, verificationDistance) ||
+                    hit.collider != collider)
                 {
                     penetrated = true;
                     break;
@@ -84,7 +100,9 @@ namespace BornToDig.EditorTools
 
             if (!penetrated)
             {
-                throw new InvalidOperationException("The center tunnel did not penetrate within 24 hits.");
+                throw new InvalidOperationException(
+                    $"The center tunnel did not penetrate within {maximumAttempts} hits. " +
+                    $"firstDistance={firstDistance:F3}, deepestDistance={deepestDistance:F3}");
             }
 
             if (collider.sharedMesh != filter.sharedMesh)
@@ -100,6 +118,93 @@ namespace BornToDig.EditorTools
                 $"firstDistance={firstDistance:F3} " +
                 $"deepestDistance={deepestDistance:F3} " +
                 $"penetrated={penetrated}");
+        }
+
+        private static void VerifyFpsCompatibility(MiningTool tool, Camera primaryCamera)
+        {
+            GameObject player = GameObject.Find("MVP_FPS_Player");
+            if (player == null)
+            {
+                throw new InvalidOperationException("VoxelRockMVP does not contain the existing FPS player.");
+            }
+
+            if (tool.gameObject != primaryCamera.gameObject)
+            {
+                throw new InvalidOperationException("MiningTool is not attached to the FPS player camera.");
+            }
+
+            int enabledSceneCameras = 0;
+            Camera[] cameras = UnityEngine.Object.FindObjectsByType<Camera>(
+                FindObjectsInactive.Include);
+            for (int i = 0; i < cameras.Length; i++)
+            {
+                if (cameras[i].gameObject.scene.IsValid() && cameras[i].enabled)
+                {
+                    enabledSceneCameras++;
+                }
+            }
+
+            if (enabledSceneCameras != 1)
+            {
+                throw new InvalidOperationException(
+                    $"VoxelRockMVP has {enabledSceneCameras} enabled cameras; exactly one is required.");
+            }
+
+            int enabledListeners = 0;
+            AudioListener[] listeners = UnityEngine.Object.FindObjectsByType<AudioListener>(
+                FindObjectsInactive.Include);
+            for (int i = 0; i < listeners.Length; i++)
+            {
+                if (listeners[i].gameObject.scene.IsValid() && listeners[i].enabled)
+                {
+                    enabledListeners++;
+                }
+            }
+
+            if (enabledListeners != 1)
+            {
+                throw new InvalidOperationException(
+                    $"VoxelRockMVP has {enabledListeners} enabled AudioListeners; exactly one is required.");
+            }
+
+            MonoBehaviour[] behaviours = UnityEngine.Object.FindObjectsByType<MonoBehaviour>(
+                FindObjectsInactive.Include);
+            bool hasFpsController = false;
+            bool hasCharacterHud = false;
+            for (int i = 0; i < behaviours.Length; i++)
+            {
+                MonoBehaviour behaviour = behaviours[i];
+                if (behaviour == null || !behaviour.gameObject.scene.IsValid())
+                {
+                    continue;
+                }
+
+                string typeName = behaviour.GetType().FullName;
+                if (typeName == "BornToDig.CharacterMVP.FpsCharacterController")
+                {
+                    hasFpsController = behaviour.enabled;
+                }
+                else if (typeName == "BornToDig.CharacterMVP.CharacterMvpHud")
+                {
+                    hasCharacterHud = behaviour.enabled;
+                }
+                else if (behaviour.GetType().Name == "FlyCameraController" && behaviour.enabled)
+                {
+                    throw new InvalidOperationException(
+                        "FlyCameraController is enabled together with FpsCharacterController.");
+                }
+                else if (behaviour.GetType().Name == "ClickableVoxelRock" && behaviour.enabled)
+                {
+                    throw new InvalidOperationException(
+                        "The legacy ClickableVoxelRock must not be active in VoxelRockMVP.");
+                }
+            }
+
+            if (!hasFpsController || !hasCharacterHud)
+            {
+                throw new InvalidOperationException(
+                    "VoxelRockMVP is missing the FPS controller or its single crosshair HUD.");
+            }
         }
     }
 }

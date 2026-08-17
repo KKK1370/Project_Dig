@@ -21,19 +21,26 @@ namespace BornToDig.VoxelMining
 
         [Header("Feedback")]
         [SerializeField] private bool showCrosshair = true;
+        [Tooltip("Prevents the click used to recapture an FPS cursor from mining.")]
+        [SerializeField] private bool requirePreviouslyLockedCursor;
 
         private GUIStyle crosshairStyle;
+        private bool cursorWasLocked;
 
         public void Configure(
             Camera cameraToUse,
             float distance = 4f,
             float radius = 0.2f,
-            float strength = 0.75f)
+            float strength = 0.75f,
+            bool displayCrosshair = true,
+            bool requireCursorLock = false)
         {
             playerCamera = cameraToUse;
             miningDistance = Mathf.Max(0.1f, distance);
             miningRadius = Mathf.Max(0.02f, radius);
             miningStrength = Mathf.Max(0.01f, strength);
+            showCrosshair = displayCrosshair;
+            requirePreviouslyLockedCursor = requireCursorLock;
         }
 
         private void Awake()
@@ -47,12 +54,19 @@ namespace BornToDig.VoxelMining
             {
                 playerCamera = Camera.main;
             }
+
+            cursorWasLocked = Cursor.lockState == CursorLockMode.Locked;
         }
 
         private void Update()
         {
             Vector2 pointerPosition;
             if (playerCamera == null || !WasPrimaryButtonPressed(out pointerPosition))
+            {
+                return;
+            }
+
+            if (requirePreviouslyLockedCursor && !cursorWasLocked)
             {
                 return;
             }
@@ -77,6 +91,11 @@ namespace BornToDig.VoxelMining
             {
                 rock.Mine(hit.point, miningRadius, miningStrength);
             }
+        }
+
+        private void LateUpdate()
+        {
+            cursorWasLocked = Cursor.lockState == CursorLockMode.Locked;
         }
 
         private static bool WasPrimaryButtonPressed(out Vector2 pointerPosition)
