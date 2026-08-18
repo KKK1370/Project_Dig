@@ -32,6 +32,7 @@ namespace BornToDig.VoxelMining
 
         public bool IsInitialized => grid != null;
         public MeshCollider RockCollider => outputMeshCollider;
+        public float IsoLevel => isoLevel;
         public float TotalDensityRemoved { get; private set; }
         public event System.Action<float> DensityRemoved;
 
@@ -140,6 +141,32 @@ namespace BornToDig.VoxelMining
             TotalDensityRemoved += removedDensity;
             DensityRemoved?.Invoke(removedDensity);
             return true;
+        }
+
+        /// <summary>
+        /// Returns the current density at a world-space point. Points outside the
+        /// voxel grid are empty. This read-only query lets small gameplay features
+        /// reuse the existing rock data without owning or rewriting the grid.
+        /// </summary>
+        public float SampleDensityWorld(Vector3 worldPosition)
+        {
+            if (!IsInitialized)
+            {
+                return 0f;
+            }
+
+            Vector3 localPosition = transform.InverseTransformPoint(worldPosition);
+            if (!grid.LocalBounds.Contains(localPosition))
+            {
+                return 0f;
+            }
+
+            return grid.SampleTrilinear(localPosition);
+        }
+
+        public bool IsSolidAtWorldPoint(Vector3 worldPosition)
+        {
+            return SampleDensityWorld(worldPosition) >= isoLevel;
         }
 
         private void RebuildMesh()
