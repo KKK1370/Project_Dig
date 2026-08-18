@@ -19,6 +19,7 @@ namespace BornToDig.CharacterMVP
         private Material runtimeMetalMaterial;
 
         public bool IsSwinging => swingRoutine != null;
+        public float SwingInterval => swingInterval;
 
         private void Awake()
         {
@@ -68,6 +69,12 @@ namespace BornToDig.CharacterMVP
             characterController = controller;
             pickaxeRoot = root;
             StoreRestPose();
+        }
+
+        public void SetSwingInterval(float seconds)
+        {
+            swingInterval = Mathf.Max(0.1f, seconds);
+            nextSwingTime = Mathf.Min(nextSwingTime, Time.unscaledTime + swingInterval);
         }
 
         private IEnumerator AnimateSwing()

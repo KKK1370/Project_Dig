@@ -27,6 +27,7 @@ namespace BornToDig.CharacterMVP
         private float verticalVelocity;
         private float pitch;
         private bool inputCaptured;
+        private bool externalInputBlocked;
 
         public bool InputCaptured => inputCaptured;
         public Camera PlayerCamera => playerCamera;
@@ -45,7 +46,10 @@ namespace BornToDig.CharacterMVP
 
         private void Start()
         {
-            CaptureInput();
+            if (!externalInputBlocked)
+            {
+                CaptureInput();
+            }
         }
 
         private void OnDisable()
@@ -76,8 +80,26 @@ namespace BornToDig.CharacterMVP
             }
         }
 
+        public void SetGameplayInputEnabled(bool enabled)
+        {
+            externalInputBlocked = !enabled;
+            if (enabled)
+            {
+                CaptureInput();
+            }
+            else
+            {
+                ReleaseInput();
+            }
+        }
+
         private void HandleCursorState()
         {
+            if (externalInputBlocked)
+            {
+                return;
+            }
+
             if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
             {
                 ReleaseInput();
