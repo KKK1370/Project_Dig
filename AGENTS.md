@@ -1,195 +1,89 @@
-# Project_Dig 開発ガイド
+# BORN TO DIG / Project_Dig — Codex 開発ルール
 
-## 最初に読むこと
+## Project Identity
 
-- このリポジトリで新機能の実装、既存機能の修正、シーンやPrefabの変更を始める前に、必ずこの `AGENTS.md` を読むこと。
-- プロジェクト構成、主要シーン、入力方式、採掘方式、重要なPrefabなどを変更した場合は、実装内容と矛盾しないよう必要に応じてこのファイルも更新すること。
-- 記述より実際のプロジェクト状態が新しい場合は、推測で進めず、該当シーン・Prefab・スクリプトを確認してこのファイルを更新すること。
+- Project name: **BORN TO DIG**
+- Unity project: **Project_Dig**
+- 一人称視点の採掘ゲーム。既存の採掘ループと参照関係を維持し、依頼された範囲だけを変更する。
 
-## ゲーム概要
+## 作業開始時の確認順序
 
-- ゲーム名／コンセプトは **BORN TO DIG**。一人称視点で岩をツルハシで掘る採掘ゲーム。
-- 現在のMVPシーンは `Assets/BornToDig/VoxelRock/Scenes/VoxelRockMVP.unity`。
-- `Assets/Scenes/SampleScene.unity` は旧方式を含む別のテストシーンであり、現行MVPと混同しないこと。
-- Build Settingsには現時点で `SampleScene` のみが登録されている。MVP確認時は `VoxelRockMVP` を明示的に開くこと。
+1. この `AGENTS.md` を読む。
+2. `docs/CODEX_PROJECT_STATE.md` が存在する場合は読む。
+3. 作業に該当する `.agents/skills/` のSkillを読む。
+4. Gitの現在ブランチと既存差分を確認し、ユーザーの未コミット変更を自分の変更と区別する。
+5. Project Stateを入口に、依頼に直接関係するScene、Prefab、コード、設定だけを確認する。
 
-## Unity・主要パッケージ
+Project Stateや過去の記録より実際のファイルが新しい場合は、推測で仕様を確定しない。関係ファイルを確認し、確認済み情報と推測を区別する。
 
-- Unity Editor: **6000.5.7f1**
-- Universal Render Pipeline (URP): 17.5.0
-- Input System: 1.20.0
-- Active Input Handling: **Input System Package (New)**（`activeInputHandler: 1`）
-- uGUI 2.5.0を導入済みで、同パッケージ内のTextMeshProを利用できる。
-- AI Navigation、AI Inference、Timeline、Visual Scripting、Meshy連携もあるが、採掘MVPの中核ではない。
+## 情報管理の役割
 
-## VoxelRockMVPシーン
+- `AGENTS.md`: 長期的に守るルール、禁止事項、コーディング方針、作業プロセス。
+- `docs/CODEX_PROJECT_STATE.md`: 現在の構造、主要ファイル、MVP状態、既知の問題、現時点の設計判断。
+- `.agents/skills/`: Unity機能追加、デバッグ、検証など、繰り返し使う作業手順。
+- Codex Memories: デバッグで得た再利用可能な知見、プロジェクト固有の癖、過去に失敗した方法、繰り返し役立つパターン。
 
-主要オブジェクト:
+同じ情報を複数層へ大量に重複させない。変わりやすいScene値、ブランチ、検証結果、ファイル一覧を `AGENTS.md` に蓄積しない。
 
-- `Voxel Rock`: `VoxelRock`、`MeshFilter`、`MeshRenderer`、`MeshCollider`、実行時に非表示になる元モデル。
-- `MVP_FPS_Player`: `CharacterController`、`FpsCharacterController`、`PickaxeViewModel`、`DwarfVisualSlot`、`CharacterMvpHud`。
-- プレイヤーの子: `CameraPivot`、`Main Camera`、`PickaxeViewModel`、`CharacterModelRoot_DropDwarfHereLater`。
-- `Main Camera`: `MiningTool`、`Camera`、`AudioListener`。
-- `GoldNugget_MVP`: 岩とは独立した金塊Prefabインスタンス。Layerは `Ignore Raycast`、ColliderはTriggerでRigidbodyは持たない。
-- `MVP_GameManager`: 金塊取得数、0.75秒後のクリア確定、UI遷移を管理する。
-- `MVP_UI`: Screen Space OverlayのCanvas。`ObjectiveText`、`PickupPrompt`、`ClearPanel`以下のクリア文言を持つ。
-- その他: `Ground`、`Directional Light`。
+## 変更範囲と既存仕様
 
-有効なCamera、AudioListener、照準は各1個だけにする。`FlyCameraController` と `FpsCharacterController` を同時に有効化せず、`ClickableVoxelRock` を `VoxelRockMVP` に追加しないこと。
+- 関係ファイルと影響範囲を確認してから変更する。
+- 既存仕様を推測で変更しない。不明点は不明と記録する。
+- ユーザーから依頼されていない大規模リファクタリング、別システムへの置換、ついで実装を行わない。
+- 変更範囲を最小限にし、既存の正常なゲームプレイを維持する。
+- 失敗した変更や未検証事項を隠さない。未検証のものを「確認済み」と報告しない。
 
-## FPSプレイヤー
+## Unity Assetと参照の安全
 
-主要ファイル:
+- 既存Scene、Prefab、Material、Model、Texture、Audio、Import設定、ProjectSettingsを不用意に変更しない。
+- Unityの `.meta` とGUIDを尊重する。Assetの移動・Rename・削除時は参照破壊を確認する。
+- Blender、FBX、GLBなどのソースアセットを明示的な依頼なしに破壊的編集しない。
+- Scene/Prefabの再生成ツールは既存調整を上書きし得る。対象と差分を確認せず実行しない。
+- Scene/Prefab変更後はMissing Script、Missing Reference、重複コンポーネント、Layer、Tag、Collider、Rigidbody、SerializedFieldを確認する。
+- RuntimeコードとEditor専用コードを分離し、Editor APIをRuntimeへ混入させない。
 
-- `Assets/FpsCharacterMVP/Prefabs/MVP_FPS_Player.prefab`
-- `Assets/FpsCharacterMVP/Runtime/FpsCharacterController.cs`
-- `Assets/FpsCharacterMVP/Runtime/PickaxeViewModel.cs`
-- `Assets/FpsCharacterMVP/Runtime/DwarfVisualSlot.cs`
-- `Assets/FpsCharacterMVP/Runtime/CharacterMvpHud.cs`
-- `Assets/FpsCharacterMVP/Editor/FpsCharacterBuilder.cs`
+## 壊してはいけない主要境界
 
-構成と挙動:
+- 現行Voxel採掘は `MiningTool` → `VoxelRock.Mine()` → `VoxelGrid` → `MarchingCubes` → Mesh/MeshCollider更新という責務分担を維持する。
+- `MiningTool` は中央Rayによる採掘入口であり、VoxelRockとDestructiblePebbleの両方へ到達できる。既存対象を壊す一方的な置換をしない。
+- 現行MVPではFPS Player、Main Camera、AudioListener、照準を重複させない。`FlyCameraController` とFPS制御を同時に有効化しない。
+- `Assets/Scenes/SampleScene.unity` の旧クリック式Voxelと、`Assets/BornToDig/VoxelRock/Scenes/VoxelRockMVP.unity` の現行開発系を混同しない。
+- DestructiblePebbleは通常時にIntactだけを配置し、Rigidbody付きFracturedを破壊時だけ生成して寿命削除する方針を維持する。
+- お宝の取得、Manager、UI、CLEARフローを、露出判定方式の変更だけを理由に重複実装しない。
+- 新しい入力は既存のNew Input System方式に合わせる。MVP全体の入力設計移行は明示的な依頼なしに行わない。
 
-- `CharacterController` ベース。WASD／矢印で移動、マウスで視点、Spaceでジャンプ、左Shiftで走る。
-- 起動時にカーソルをロックし、Escで解除、左クリックで再取得する。
-- `CameraPivot` は目の高さにあり、既存の `Main Camera` を子として使用する。
-- `DwarfVisualSlot` は将来の外見Prefab用で、移動・カメラ・採掘とは分離されている。
-- `CharacterMvpHud` はIMGUIで操作説明と照準を描画する。金塊MVP用Canvasとは責務が異なるため、どちらも維持する。
-- `FpsCharacterBuilder` は既存Cameraを引き継いでFPSとPrefabを作るEditorツール。既存プレイヤーを不用意に再生成しないこと。
+詳細な現在構成、Sceneの実体、数値、重要ファイルは `docs/CODEX_PROJECT_STATE.md` を参照する。
 
-## ツルハシ／採掘処理
+## Unity C# 方針
 
-主要ファイル:
+- 既存コードのnamespace、命名、`SerializeField`、Inspector構成を優先する。
+- null安全性を考慮する。ただし原因を調べずnullチェックだけで症状を隠さない。
+- `Update` 内の不要な重処理、不必要なGC Alloc、Find系APIの乱用を避ける。
+- イベント購読は解除まで含め、重複購読や破棄済み参照を残さない。
+- MVP段階では、過剰な抽象化より単純で堅牢な実装を優先する。
+- 公開API追加は必要最小限にし、既存の責務を保つ。
 
-- `Assets/FpsCharacterMVP/Runtime/PickaxeViewModel.cs`
-- `Assets/BornToDig/VoxelRock/Scripts/MiningTool.cs`
+## 検証と完了条件
 
-仕組み:
+- 可能な範囲で実装後にC#コンパイル、Unity Console、対象Scene/Prefab参照、Play Mode挙動、Git差分を確認する。
+- Console Errorを残した状態で完了扱いにしない。実行環境の制約で確認できない場合は、未検証項目と理由を明記する。
+- ゲーム機能を変更した場合は、対象機能だけでなく近接する既存ループへの回帰も確認する。
+- Scene/Prefab/ゲームコードを変更していない作業では、Unityに不要な再保存をさせない。
+- 完了前に `git diff` と未追跡ファイルを確認し、意図しないScene、Prefab、Import設定、ProjectSettings、バイナリ、自動生成物がないことを確認する。
+- ユーザーの依頼なしにcommit、push、branch切替を行わない。
 
-- `PickaxeViewModel` は一人称ツルハシの見た目とスイングアニメーションを担当する。
-- 左クリック長押し、またはGamepadのRight Triggerで一定間隔ごとにスイングする。
-- 表示は `Handle`、`Metal Head`、`Left Tip` からなる簡易モデルで、採掘判定自体は持たない。
-- 採掘判定は `Main Camera` の `MiningTool` が担当する。
-- 画面中央からRaycastし、命中Colliderが対象 `VoxelRock.RockCollider` の場合だけ `VoxelRock.Mine()` を呼ぶ。
-- カーソル再ロックのクリックで誤採掘しないよう、既存シーンではカーソルロック状態のゲートを使う。
-- 現在のシーン値は概ね Distance `15.186258`、Radius `0.585`、Strength `1.528`。READMEやBuilderの初期値へ不用意に戻さないこと。
-- `MiningSkillProgression` が `MiningTool` と `PickaxeViewModel` の間隔を同期して変更する場合がある。
+## Project State更新ルール
 
-## VoxelRockの仕組みと主要スクリプト
+作業終了前に `docs/CODEX_PROJECT_STATE.md` を確認する。次の変更で内容が古くなった場合だけ、現在状態を短く正確に更新する。
 
-主要ファイル:
+- 新システムまたは新しい依存関係を追加した。
+- システム構造、重要な設計判断、主要なデータフローを変更した。
+- 重要なバグを修正し、再利用可能な制約や既知問題が変わった。
+- 主要Sceneまたは主要Prefabを追加・置換・役割変更した。
+- 検証方法や利用可能なテスト環境が変わった。
 
-- `Assets/BornToDig/VoxelRock/Scripts/VoxelRock.cs`
-- `Assets/BornToDig/VoxelRock/Scripts/VoxelGrid.cs`
-- `Assets/BornToDig/VoxelRock/Scripts/VoxelMeshVoxelizer.cs`
-- `Assets/BornToDig/VoxelRock/Scripts/MarchingCubes.cs`
-- `Assets/BornToDig/VoxelRock/Scripts/MiningTool.cs`
-- `Assets/BornToDig/VoxelRock/Models/BORN_TO_DIG_Rock.fbx`
-- `Assets/BornToDig/VoxelRock/Materials/BORN_TO_DIG_Rock.mat`
-- `Assets/BornToDig/VoxelRock/Source/BORN_TO_DIG_Rock.glb`
+typo、小さな数値変更、一時デバッグ、構造に影響しない微細変更では更新不要。巨大な時系列ログにせず、古い状態や解決済み問題を整理する。
 
-処理の流れ:
+## Memoryへ残す判断
 
-1. `VoxelRock.Initialize()` がRead/Write可能な元岩メッシュを岩ローカル空間へ変換する。
-2. `VoxelMeshVoxelizer.FillFromMesh()` が閉じたメッシュを走査し、`VoxelGrid` の密度を内部 `1`、空間 `0` として埋める。
-3. `MarchingCubes.Generate()` が密度グリッドからランタイムMeshを生成する。
-4. 同じMeshを `MeshFilter` と `MeshCollider` に設定する。
-5. `VoxelRock.Mine()` が `VoxelGrid.CarveSphereAmount()` でワールド空間の球範囲を減算する。
-6. 密度が変わったときだけMeshとColliderを再生成し、`DensityRemoved` イベントを通知する。
-
-現行設定:
-
-- Grid Resolution: `48`
-- Iso Level: `0.5`
-- Bounds Padding: `0.06`
-- `Voxel Rock` Scale: `5, 5, 5`
-- 元モデルは初期化後に非表示になる。別GameObjectまで削除する仕組みではない。
-
-`VoxelGrid` はトリリニア密度サンプル、勾配、球状密度減算を持つ。`VoxelRock.SampleDensityWorld()` と `IsSolidAtWorldPoint()` はこの既存密度をワールド座標から読むための小さな公開APIで、金塊の露出判定に使用する。別のVoxelシステムを作らないこと。
-
-## Input System方式
-
-- `Assets/InputSystem_Actions.inputactions` に `Player` と `UI` のAction Mapがあり、Move、Look、Attack、Interact、Crouch、Jump、Previous、Next、Sprint等を定義している。
-- ただし主要ランタイムコードは `PlayerInput` や生成ラッパーではなく、`Keyboard.current`、`Mouse.current`、`Gamepad.current` を直接読む。
-- 新機能は `FpsCharacterController`、`PickaxeViewModel`、`MiningTool`、`MiningSkillProgression` の方式に合わせる。
-- 新機能だけ旧 `UnityEngine.Input` を混在させない。Action Asset中心への全面移行はMVP範囲を超えるため、別途明示的な承認が必要。
-- 条件付きLegacy Inputコードが残っていても、現在のProject SettingsではNew Input System側が使用される。
-
-## 採掘スキルMVP
-
-主要ファイルは `Assets/MiningSkillMVP/Runtime/MiningSkillProgression.cs`。
-
-- Sceneロード後にBootstrapが自動生成するため、Scene上に重複追加しない。
-- 現行 `VoxelRock.DensityRemoved` と旧 `ClickableVoxelRock.VoxelsRemoved` の両方に対応する。
-- 採掘量からSkill Pointを加算する。
-- Tabでスキル画面を開閉し、表示中はFPS入力を止める。
-- Skill Pointで採掘速度を強化し、採掘とツルハシの間隔を同時に短縮する。
-- UIはIMGUIで描画される。
-
-## 重要なPrefab・Scene・Editorツール
-
-- 現行MVP Scene: `Assets/BornToDig/VoxelRock/Scenes/VoxelRockMVP.unity`
-- 旧／別テストScene: `Assets/Scenes/SampleScene.unity`
-- FPS Prefab: `Assets/FpsCharacterMVP/Prefabs/MVP_FPS_Player.prefab`
-- 金塊Prefab: `Assets/BornToDig/GoldNuggetMVP/Prefabs/GoldNugget_MVP.prefab`
-- 金塊Model: `Assets/BornToDig/GoldNuggetMVP/Models/GoldNugget_MVP.fbx`（`お宝.blend` から書き出したもの）
-- 金塊Material: `Assets/BornToDig/GoldNuggetMVP/Materials/GoldNugget_MVP.mat`
-- 日本語UI Font: `Assets/BornToDig/GoldNuggetMVP/Fonts/NotoSansJP-VF.ttf`
-- TextMeshPro基本リソース: `Assets/TextMesh Pro`
-- `VoxelRockMvpSceneBuilder.cs`: VoxelRockテストシーンを生成する。編集済みシーンを確認せず作り直さない。
-- `VoxelRockFpsCompatibility.cs`: FPSを統合し、Camera、AudioListener、照準の重複を防ぐ。
-- `VoxelRockMvpVerifier.cs`: 岩生成、Collider更新、反復採掘、貫通、FPS互換性のスモークテスト。
-- `FpsCharacterBuilder.cs`: FPSとPrefabを生成するEditorツール。
-- `GoldNuggetMvpInstaller.cs`: 金塊PrefabとMVP用Scene構成を再生成するEditorツール。既存調整を上書きし得るため、通常作業で不用意に再実行しない。
-- `GoldNuggetMvpVerifier.cs`: 金塊の初期埋没、露出、中央注視、取得、UI、CLEARと既存FPS／採掘の有効性を検証する。
-
-## 旧方式・補助コード
-
-- `Assets/Scripts/ClickableVoxelRock.cs` は32³ bool配列と露出面Cube Meshによる旧岩。現行MVPでは使用しない。
-- `Assets/Scripts/FlyCameraController.cs` は旧テスト用。現行MVPでは無効化し、FPSと併用しない。
-- `Assets/ai.meshy` はMeshy連携Editor拡張。
-- `Assets/TutorialInfo` と `Readme.asset` はUnityテンプレート由来。
-
-## 現在完成している機能
-
-- FPS移動、視点、ジャンプ、スプリント、カーソル制御。
-- 一人称ツルハシ表示と連続スイング。
-- 画面中央RaycastによるVoxelRock採掘。
-- 岩モデルからの密度グリッド生成とMarching Cubes Mesh生成。
-- 球状密度削除による凹み、穴、貫通。
-- 採掘後のMeshCollider同期更新。
-- 操作説明と照準HUD。
-- 採掘量、Skill Point、採掘速度アップの採掘スキルMVP。
-- FPSとVoxelRockの統合、単一Camera／AudioListener／照準。
-- 採掘ループを確認するEditorスモークテスト。
-- 岩内部の金塊1個を掘り出し、取得して `MVP CLEAR` になる最小ゲームループ。
-- 14点のVoxel密度サンプルによる金塊露出判定、近距離・中央注視・Eキーによる取得判定。
-- TextMeshProによる探索、取得プロンプト、取得数、クリア表示。
-
-## 現在の金塊MVP実装
-
-既存採掘を維持した次の最小ループは実装済み。
-
-`岩を掘る → 岩内部の金塊を発見する → 十分に露出させる → 近距離で見てEキーで取得する → MVP CLEAR`
-
-実装内容:
-
-- `GoldNugget_MVP` は岩内部の独立GameObjectで、ワールド位置は概ね `(0.74, 1.69, -3.43)`。開始時はVoxel密度上で完全に埋没している。
-- `GoldNuggetMVP.cs` が開始時と `VoxelRock.DensityRemoved` 通知時にCollider周囲14方向の密度を確認し、7点以上（50%）が空間になれば露出済みとして固定する。
-- 露出後、Main Cameraから2.75m以内の中央Raycastが金塊Triggerへ当たると `E 金塊を拾う` を表示する。
-- 取得はNew Input Systemの `Keyboard.current.eKey`（GamepadはbuttonWest）で行い、取得後はRendererとColliderを無効化して再取得を防ぐ。
-- `MVPGameManager.cs` が取得数を1にし、0.75秒後にCLEARを表示する。Scene変更やアプリ終了は行わない。
-- `MVPUI.cs` が `金塊を探す 0 / 1`、取得プロンプト、`金塊を入手！ 1 / 1`、`MVP CLEAR`、`金塊を発見しました！` を表示する。
-- インベントリ、複数お宝、セーブ、Scene遷移は追加していない。
-
-## 変更時の必須ルール
-
-- **正常に動いている既存の採掘システムを不用意に書き直さないこと。**
-- `VoxelRock`、`VoxelGrid`、`VoxelMeshVoxelizer`、`MarchingCubes`、`MiningTool` の責務と流れを維持し、必要最小限の公開APIや追加コンポーネントで拡張すること。
-- **大規模リファクタリングをしないこと。** MVPに不要な抽象化、汎用インベントリ、セーブ、複数お宝、Scene遷移を追加しない。
-- Scene Builder再実行で調整値や追加物が失われる可能性がある。既存 `VoxelRockMVP` を確認せず再生成しない。
-- FPS、Camera、AudioListener、照準、MiningTool、採掘スキルBootstrapを重複生成しない。
-- 新しいColliderが採掘Rayを遮らないか確認し、必要ならLayerまたはTriggerで岩を掘れなくしない。
-- 新しい入力はNew Input System直接参照方式に合わせる。
-- SceneやPrefab変更後はMissing Script、参照切れ、重複、Consoleの赤エラーを確認する。
-- 採掘関連変更後はFPS操作、ツルハシ、岩初期生成、反復採掘、穴の深化、Collider更新を再確認する。
+デバッグで得た再利用可能な知見、繰り返し起きる問題、失敗した方法、Project_Dig固有の注意点はCodex Memories向きである。現在のScene構成や一時的なブランチ状態はProject Stateへ置く。Memory更新権限や利用可否が不明な場合は、勝手にユーザー設定を変更せず最終報告で説明する。

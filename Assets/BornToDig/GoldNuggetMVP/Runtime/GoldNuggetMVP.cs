@@ -149,6 +149,28 @@ namespace BornToDig.GoldMVP
             return isExposed;
         }
 
+        /// <summary>
+        /// Allows a non-voxel prototype to reuse the existing pickup and clear flow while
+        /// supplying its own exposure measurement. The highest reported value is retained
+        /// so an exposed nugget never becomes hidden again.
+        /// </summary>
+        public bool ReportExternalExposure(float fraction)
+        {
+            if (isCollected)
+            {
+                return isExposed;
+            }
+
+            exposedFraction = Mathf.Max(exposedFraction, Mathf.Clamp01(fraction));
+            if (!isExposed && exposedFraction >= requiredExposedFraction)
+            {
+                isExposed = true;
+                Exposed?.Invoke();
+            }
+
+            return isExposed;
+        }
+
         public bool IsCameraTargetingPickup()
         {
             if (!isExposed || isCollected || playerCamera == null ||

@@ -1,4 +1,5 @@
 using UnityEngine;
+using BornToDig.Destructibles;
 
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
@@ -30,6 +31,7 @@ namespace BornToDig.VoxelMining
         private float nextMiningTime;
 
         public float MiningInterval => miningInterval;
+        public float MiningStrength => miningStrength;
 
         public void Configure(
             Camera cameraToUse,
@@ -97,6 +99,11 @@ namespace BornToDig.VoxelMining
                 ? playerCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f))
                 : playerCamera.ScreenPointToRay(pointerPosition);
 
+            TryMine(ray);
+        }
+
+        public bool TryMine(Ray ray)
+        {
             RaycastHit hit;
             if (!Physics.Raycast(
                     ray,
@@ -105,14 +112,22 @@ namespace BornToDig.VoxelMining
                     mineableLayers,
                     QueryTriggerInteraction.Ignore))
             {
-                return;
+                return false;
+            }
+
+            DestructiblePebble pebble = hit.collider.GetComponentInParent<DestructiblePebble>();
+            if (pebble != null)
+            {
+                return pebble.TakeDamage(miningStrength, hit.point, ray.direction);
             }
 
             VoxelRock rock = hit.collider.GetComponentInParent<VoxelRock>();
             if (rock != null && hit.collider == rock.RockCollider)
             {
-                rock.Mine(hit.point, miningRadius, miningStrength);
+                return rock.Mine(hit.point, miningRadius, miningStrength);
             }
+
+            return false;
         }
 
         private void LateUpdate()
