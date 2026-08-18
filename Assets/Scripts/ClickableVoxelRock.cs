@@ -31,6 +31,9 @@ public sealed class ClickableVoxelRock : MonoBehaviour
     private Mesh rockMesh;
     private Material generatedMaterial;
 
+    public event System.Action<int> VoxelsRemoved;
+    public int TotalVoxelsRemoved { get; private set; }
+
     private static readonly Vector3Int[] Directions =
     {
         new Vector3Int( 1,  0,  0),
@@ -96,11 +99,23 @@ public sealed class ClickableVoxelRock : MonoBehaviour
         Ray ray = targetCamera.ScreenPointToRay(
             new Vector3(screenPosition.x, screenPosition.y, 0f));
 
-        RaycastHit hit;
-        if (Physics.Raycast(ray, out hit, maximumClickDistance) && hit.collider == meshCollider)
+        TryMine(ray);
+    }
+
+    public int TryMine(Ray ray)
+    {
+        if (meshCollider == null)
         {
-            CarveSphere(hit.point);
+            return 0;
         }
+
+        RaycastHit hit;
+        if (!Physics.Raycast(ray, out hit, maximumClickDistance) || hit.collider != meshCollider)
+        {
+            return 0;
+        }
+
+        return CarveSphere(hit.point);
     }
 
     private static bool TryGetClickPosition(out Vector2 screenPosition)
@@ -151,10 +166,10 @@ public sealed class ClickableVoxelRock : MonoBehaviour
         }
     }
 
-    private void CarveSphere(Vector3 worldHitPoint)
+    private int CarveSphere(Vector3 worldHitPoint)
     {
         float radiusSquared = dentRadius * dentRadius;
-        bool changed = false;
+        int removedCount = 0;
 
         for (int x = 0; x < Resolution; x++)
         for (int y = 0; y < Resolution; y++)
@@ -169,14 +184,18 @@ public sealed class ClickableVoxelRock : MonoBehaviour
             if ((worldVoxelCenter - worldHitPoint).sqrMagnitude <= radiusSquared)
             {
                 voxels[x, y, z] = false;
-                changed = true;
+                removedCount++;
             }
         }
 
-        if (changed)
+        if (removedCount > 0)
         {
             RebuildMesh();
+            TotalVoxelsRemoved += removedCount;
+            VoxelsRemoved?.Invoke(removedCount);
         }
+
+        return removedCount;
     }
 
     private void RebuildMesh()

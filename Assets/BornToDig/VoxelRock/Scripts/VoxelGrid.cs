@@ -90,11 +90,23 @@ namespace BornToDig.VoxelMining
             float worldRadius,
             float strength)
         {
+            return CarveSphereAmount(rockTransform, worldCenter, worldRadius, strength) > 0f;
+        }
+
+        /// <summary>
+        /// Reduces density and returns the exact accumulated density removed.
+        /// </summary>
+        public float CarveSphereAmount(
+            Transform rockTransform,
+            Vector3 worldCenter,
+            float worldRadius,
+            float strength)
+        {
             worldRadius = Mathf.Max(0.001f, worldRadius);
             strength = Mathf.Max(0f, strength);
             if (strength <= 0f)
             {
-                return false;
+                return 0f;
             }
 
             Vector3 localCenter = rockTransform.InverseTransformPoint(worldCenter);
@@ -114,7 +126,7 @@ namespace BornToDig.VoxelMining
             int zMax = Mathf.Clamp(Mathf.CeilToInt(maximumGrid.z) + 1, 0, Resolution - 1);
 
             float radiusSquared = worldRadius * worldRadius;
-            bool changed = false;
+            float removedDensity = 0f;
 
             for (int z = zMin; z <= zMax; z++)
             for (int y = yMin; y <= yMax; y++)
@@ -142,11 +154,11 @@ namespace BornToDig.VoxelMining
                 if (!Mathf.Approximately(newDensity, oldDensity))
                 {
                     densities[x, y, z] = newDensity;
-                    changed = true;
+                    removedDensity += oldDensity - newDensity;
                 }
             }
 
-            return changed;
+            return removedDensity;
         }
     }
 }

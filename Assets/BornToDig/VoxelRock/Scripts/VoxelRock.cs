@@ -32,6 +32,8 @@ namespace BornToDig.VoxelMining
 
         public bool IsInitialized => grid != null;
         public MeshCollider RockCollider => outputMeshCollider;
+        public float TotalDensityRemoved { get; private set; }
+        public event System.Action<float> DensityRemoved;
 
         private void Awake()
         {
@@ -119,13 +121,24 @@ namespace BornToDig.VoxelMining
         /// </summary>
         public bool Mine(Vector3 worldHitPoint, float worldRadius, float strength)
         {
-            if (!IsInitialized ||
-                !grid.CarveSphere(transform, worldHitPoint, worldRadius, strength))
+            if (!IsInitialized)
+            {
+                return false;
+            }
+
+            float removedDensity = grid.CarveSphereAmount(
+                transform,
+                worldHitPoint,
+                worldRadius,
+                strength);
+            if (removedDensity <= 0f)
             {
                 return false;
             }
 
             RebuildMesh();
+            TotalDensityRemoved += removedDensity;
+            DensityRemoved?.Invoke(removedDensity);
             return true;
         }
 

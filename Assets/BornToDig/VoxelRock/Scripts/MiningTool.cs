@@ -18,6 +18,7 @@ namespace BornToDig.VoxelMining
         [Header("Mining")]
         [SerializeField, Range(0.02f, 1f)] private float miningRadius = 0.2f;
         [SerializeField, Range(0.01f, 2f)] private float miningStrength = 0.75f;
+        [SerializeField, Min(0.1f)] private float miningInterval = 0.48f;
 
         [Header("Feedback")]
         [SerializeField] private bool showCrosshair = true;
@@ -26,6 +27,9 @@ namespace BornToDig.VoxelMining
 
         private GUIStyle crosshairStyle;
         private bool cursorWasLocked;
+        private float nextMiningTime;
+
+        public float MiningInterval => miningInterval;
 
         public void Configure(
             Camera cameraToUse,
@@ -33,7 +37,8 @@ namespace BornToDig.VoxelMining
             float radius = 0.2f,
             float strength = 0.75f,
             bool displayCrosshair = true,
-            bool requireCursorLock = false)
+            bool requireCursorLock = false,
+            float interval = 0.48f)
         {
             playerCamera = cameraToUse;
             miningDistance = Mathf.Max(0.1f, distance);
@@ -41,6 +46,13 @@ namespace BornToDig.VoxelMining
             miningStrength = Mathf.Max(0.01f, strength);
             showCrosshair = displayCrosshair;
             requirePreviouslyLockedCursor = requireCursorLock;
+            miningInterval = Mathf.Max(0.1f, interval);
+        }
+
+        public void SetMiningInterval(float seconds)
+        {
+            miningInterval = Mathf.Max(0.1f, seconds);
+            nextMiningTime = Mathf.Min(nextMiningTime, Time.unscaledTime + miningInterval);
         }
 
         private void Awake()
@@ -61,7 +73,10 @@ namespace BornToDig.VoxelMining
         private void Update()
         {
             Vector2 pointerPosition;
-            if (playerCamera == null || !WasPrimaryButtonPressed(out pointerPosition))
+            bool pressedThisFrame;
+            bool held;
+            ReadPrimaryButton(out pointerPosition, out pressedThisFrame, out held);
+            if (playerCamera == null || !held)
             {
                 return;
             }
@@ -70,6 +85,13 @@ namespace BornToDig.VoxelMining
             {
                 return;
             }
+
+            if (!pressedThisFrame && Time.unscaledTime < nextMiningTime)
+            {
+                return;
+            }
+
+            nextMiningTime = Time.unscaledTime + miningInterval;
 
             Ray ray = rayFromScreenCenter
                 ? playerCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f))
@@ -98,26 +120,38 @@ namespace BornToDig.VoxelMining
             cursorWasLocked = Cursor.lockState == CursorLockMode.Locked;
         }
 
-        private static bool WasPrimaryButtonPressed(out Vector2 pointerPosition)
+        private static void ReadPrimaryButton(
+            out Vector2 pointerPosition,
+            out bool pressedThisFrame,
+            out bool held)
         {
+            pointerPosition = Vector2.zero;
+            pressedThisFrame = false;
+            held = false;
+
 #if ENABLE_INPUT_SYSTEM
-            if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
+            if (Mouse.current != null)
             {
                 pointerPosition = Mouse.current.position.ReadValue();
-                return true;
+                pressedThisFrame = Mouse.current.leftButton.wasPressedThisFrame;
+                held = Mouse.current.leftButton.isPressed;
+            }
+
+            if (Gamepad.current != null)
+            {
+                pressedThisFrame |= Gamepad.current.rightTrigger.wasPressedThisFrame;
+                held |= Gamepad.current.rightTrigger.isPressed;
             }
 #endif
 
 #if ENABLE_LEGACY_INPUT_MANAGER
-            if (Input.GetMouseButtonDown(0))
+            if (Input.GetMouseButton(0))
             {
                 pointerPosition = Input.mousePosition;
-                return true;
+                pressedThisFrame |= Input.GetMouseButtonDown(0);
+                held = true;
             }
 #endif
-
-            pointerPosition = Vector2.zero;
-            return false;
         }
 
         private void OnValidate()
@@ -125,6 +159,7 @@ namespace BornToDig.VoxelMining
             miningDistance = Mathf.Max(0.1f, miningDistance);
             miningRadius = Mathf.Max(0.02f, miningRadius);
             miningStrength = Mathf.Max(0.01f, miningStrength);
+            miningInterval = Mathf.Max(0.1f, miningInterval);
         }
 
         private void OnGUI()
