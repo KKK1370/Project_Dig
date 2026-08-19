@@ -1,0 +1,4 @@
+interface:
+  display_name: "BORN TO DIG Debug"
+  short_description: "Find and fix BORN TO DIG Unity root causes"
+  default_prompt: "Use $born-to-dig-debug to diagnose and fix a BORN TO DIG Unity bug from reproducible evidence."

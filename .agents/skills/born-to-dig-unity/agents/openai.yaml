@@ -1,0 +1,4 @@
+interface:
+  display_name: "BORN TO DIG Unity"
+  short_description: "Safely implement BORN TO DIG Unity features"
+  default_prompt: "Use $born-to-dig-unity to implement a Unity feature in BORN TO DIG with minimal, verified changes."
