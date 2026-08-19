@@ -77,6 +77,12 @@ Runtimeコードは基本的に `Assembly-CSharp`、Editorコードは `Assembly
 - `Assets/BornToDig/GoldNuggetMVP/Editor/GoldNuggetMvpInstaller.cs` — PrefabとScene構成を再生成する。既存調整を上書きし得る。
 - `Assets/BornToDig/GoldNuggetMVP/Editor/GoldNuggetMvpVerifier.cs` — 金塊の埋没/露出/注視/取得/UI/CLEARを検証する。
 
+### 環境テスト
+
+- `Assets/PurePoly/Mining_Pack/` — PurePoly Mining Packのインポート済み素材一式。既存のゲームプレイSceneとは分離して扱う。
+- `Assets/BornToDig/EnvironmentIntegration/Editor/PurePolyMiningPackEnvironmentSceneBuilder.cs` — PurePoly Prefabから独立した視覚確認Sceneを生成するEditorツール。配置物をIgnore Raycast Layerへ設定し、Colliderを無効化する。
+- `Assets/BornToDig/EnvironmentIntegration/Scenes/PurePolyMiningPackEnvironmentTest.unity` — 地面、岩、洞窟、植生、確認用Camera/Lightだけを持つ環境素材の視覚確認Scene。`VoxelRockMVP` を置換するゲームプレイSceneではない。
+
 ### プレイヤー・入力・Skill
 
 - `Assets/FpsCharacterMVP/Runtime/FpsCharacterController.cs` — CharacterControllerによる移動、視点、ジャンプ、スプリント、カーソル制御。
@@ -91,6 +97,7 @@ Runtimeコードは基本的に `Assembly-CSharp`、Editorコードは `Assembly
 - `Assets/BornToDig/Maps/Map01/Area01/Scenes/Map01_Area01.unity` — 本番用のMap 01 / Area 01草原環境ベース。80m四方の緩やかなTerrain、PurePoly Mining Packの樹木・草・背景岩、暖色昼光、URP Volume、弱いWind、FPS Playerを持つ。宇宙船・巨大採掘岩・採掘対象は置かず、Transformのみの`Future_Spaceship_Area`と`Future_GiantRock_Area`で予約範囲を示す。
 - `Assets/BornToDig/VoxelRock/Scenes/VoxelRockMVP.unity` — 現在の開発対象Scene。working treeではVoxelRockを外し、`PebbleRockCluster_Test`、FPS、Main Camera/MiningTool、金塊、Manager、TMP UI、Ground、Directional Lightを持つ。
 - `Assets/Scenes/SampleScene.unity` — 旧32³ `ClickableVoxelRock` と `FlyCameraController` を含む別テスト系。現行FPS/Pebble Sceneと混同しない。
+- `Assets/BornToDig/EnvironmentIntegration/Scenes/PurePolyMiningPackEnvironmentTest.unity` — PurePoly Mining Packの背景素材だけを確認する独立Scene。FPS、採掘、Pebble、金塊フローは含まない。
 
 Build Settingsに登録されているSceneは現在 `SampleScene` のみ。`VoxelRockMVP` を確認する場合は明示的に開く。
 
@@ -166,6 +173,7 @@ HUDとMVP_UIは責務が異なるため、片方を重複と誤認して削除�
 - Intactは軽量、Fracturedは破壊時だけ生成して短時間で削除する。
 - FPS/Camera/AudioListener/照準の重複を避ける。
 - New Input Systemのdevice直接参照を既存MVP方式として維持し、全面的なAction Asset移行は別判断とする。
+- PurePoly環境素材の確認SceneはゲームプレイSceneから分離し、背景用インスタンスはIgnore RaycastかつCollider無効のdisplay-onlyとする。
 
 ## Known Problems
 
@@ -190,6 +198,7 @@ HUDとMVP_UIは責務が異なるため、片方を重複と誤認して削除�
 - Pebble testの金塊は `voxelRock: null` で、trackerから外部露出を受けること。
 - 単一FPS Player、Main Camera、AudioListener、照準と、Main Camera上のMiningTool。
 - `.meta`/GUID、Model import settings、Prefab/Sceneのserialized references。
+- PurePoly確認Sceneと `VoxelRockMVP` の役割分離、および背景用PurePolyインスタンスのIgnore Raycast/Collider無効設定。
 
 ## Verification Methods
 
@@ -229,5 +238,6 @@ Test Framework packageは存在するが、NUnit用test asmdef/test fileは確�
 - `GoldNuggetMVP` に外部露出率bridgeを追加。
 - `VoxelRockMVP.unity` からVoxelRockインスタンスを外し、`PebbleRockCluster_Test` とその内部の金塊へ置換。
 - `Assets/BornToDig/DestructiblePebbles/` 一式を追加。Runtime、Editor installer/verifier、A/B/C Prefab/Model、test generator/verifierを含む。
+- `Assets/PurePoly/Mining_Pack/` をインポートし、独立した `PurePolyMiningPackEnvironmentTest.unity` と生成・プレビュー用Editor builderを追加。
 
 既存AGENTSにはPebble Play検証とVoxel smoke検証のPASS記録があったが、このProject State作成時にはUnity検証を再実行していない。特にVoxel smoke verifierは現在Sceneと前提がずれているため、過去結果を現在結果として扱わない。
