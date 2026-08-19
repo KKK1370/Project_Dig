@@ -88,6 +88,7 @@ Runtimeコードは基本的に `Assembly-CSharp`、Editorコードは `Assembly
 
 ## Scenes
 
+- `Assets/BornToDig/Maps/Map01/Area01/Scenes/Map01_Area01.unity` — 本番用のMap 01 / Area 01草原環境ベース。80m四方の緩やかなTerrain、PurePoly Mining Packの樹木・草・背景岩、暖色昼光、URP Volume、弱いWind、FPS Playerを持つ。宇宙船・巨大採掘岩・採掘対象は置かず、Transformのみの`Future_Spaceship_Area`と`Future_GiantRock_Area`で予約範囲を示す。
 - `Assets/BornToDig/VoxelRock/Scenes/VoxelRockMVP.unity` — 現在の開発対象Scene。working treeではVoxelRockを外し、`PebbleRockCluster_Test`、FPS、Main Camera/MiningTool、金塊、Manager、TMP UI、Ground、Directional Lightを持つ。
 - `Assets/Scenes/SampleScene.unity` — 旧32³ `ClickableVoxelRock` と `FlyCameraController` を含む別テスト系。現行FPS/Pebble Sceneと混同しない。
 
@@ -216,6 +217,11 @@ Unityの `-executeMethod` で呼べるpublic static entrypoint:
 Test Framework packageは存在するが、NUnit用test asmdef/test fileは確認できていない。compile/YAML確認とEditor/Play verifierを区別して報告する。
 
 ## Recent Significant Changes
+
+2026-08-19の本番環境追加:
+
+- `Assets/BornToDig/Maps/Map01/Area01/`へ`Map01_Area01`草原Scene、Terrain/Lighting/Material、低コストWind制御、再生成/検証用Editorツールを追加。
+- PurePoly Mining Packの既存PrefabとURP/Litを共有し、装飾Colliderを無効化、Area01用共有MaterialでGPU Instancingを有効化。既存採掘コード、MVP Scene、ProjectSettings、Build Settingsは変更していない。
 
 2026-08-18〜19のworking treeで確認した未コミット変更:
 
