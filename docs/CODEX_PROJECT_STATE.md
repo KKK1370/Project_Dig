@@ -1,229 +1,237 @@
 # BORN TO DIG — Codex Project State
 
-Last verified: **2026-08-18**  
-Verified branch/commit at investigation start: **`test` / `52ac306`**
-
-This file records current project state, not permanent rules. Permanent rules live in `AGENTS.md`; reusable procedures live in `.agents/skills/`.
+Last reviewed: 2026-08-19
+Review scope: current working tree on branch `test`; gameplay changes listed below were already present before this knowledge-management setup.
 
 ## Project Overview
 
-- **BORN TO DIG** is a first-person mining MVP in Unity project **Project_Dig**.
-- Unity Editor: **6000.5.7f1**.
-- Render pipeline: **URP 17.5.0**.
-- Input System package: **1.20.0**; `activeInputHandler: 1` selects the New Input System.
-- Other installed packages include uGUI 2.5.0, Test Framework 1.7.0, AI Navigation, AI Inference, Timeline, Visual Scripting, and Meshy integration.
-- Project-owned game Runtime code has no asmdef and compiles into `Assembly-CSharp`; code under `Editor/` compiles into `Assembly-CSharp-Editor`. The only project asmdef found is `Assets/ai.meshy/Editor/Script/MeshyAssembly.asmdef`.
+BORN TO DIGは、FPSプレイヤーがツルハシで岩を掘り、お宝を露出させて取得するUnity製の採掘MVPである。Unity project名は `Project_Dig`。
+
+- Unity: `6000.5.7f1`
+- Render pipeline: URP `17.5.0`
+- Input System: `1.20.0`; `activeInputHandler: 1`（New Input System）
+- UI: uGUI/TMP `2.5.0` と一部IMGUI
+- Test Framework package: `1.7.0`
+- Git branch at review: `test`
 
 ## Current MVP Goal
 
-Confirmed implemented and verified-by-code target loop:
+コードとSceneから確認できる現在の最小ゲームループは次のとおり。
 
-`FPSで岩へ接近する → ツルハシでVoxelRockを掘る → 埋没した金塊を露出させる → 中央注視してEで取得する → MVP CLEARを表示する`
+`一人称で移動する → ツルハシで岩を掘る → 金塊を露出させる → 中央注視してEで取得する → MVP CLEAR`
 
-The implemented MVP also includes a mining-skill screen that converts mined amount into Skill Points and shortens the mining/swing interval. A broader product goal beyond this loop is not documented in the inspected files; do not infer one.
+現在の未コミットworking treeでは、`VoxelRockMVP.unity` 上のVoxelRockインスタンスが **132個のDestructiblePebbleによるテスト用岩集合**へ置き換えられている。VoxelRock実装自体はコードとして残るが、現在の同Sceneには配置されていない。
+
+「Voxel方式とPebble方式のどちらを最終採用するか」は、確認できる正式仕様がないため未確定。現在のSceneとコードから、Pebble集合を既存のFPS・採掘・金塊取得フローに統合して評価中だと推測される。
 
 ## Architecture
 
-1. `FpsCharacterController` owns movement, look, jump, sprint, and cursor capture.
-2. `PickaxeViewModel` reads the same attack input for first-person swing visuals; it does not mine the rock.
-3. `MiningTool` on `Main Camera` raycasts from screen center and calls `VoxelRock.Mine()` only when the hit collider is that rock's `RockCollider`.
-4. `VoxelRock` owns a `VoxelGrid`, generates a runtime mesh through `MarchingCubes`, and assigns the same mesh to `MeshFilter` and `MeshCollider`.
-5. Successful carving emits `VoxelRock.DensityRemoved`.
-6. `MiningSkillProgression` consumes removed density for Skill Points and synchronizes `MiningTool` and `PickaxeViewModel` intervals.
-7. `GoldNuggetMVP` also reacts to density changes, samples the rock around its collider, and becomes collectible once sufficiently exposed.
-8. `MVPGameManager` consumes collection events; `MVPUI` updates objective, prompt, and clear state.
+主要なデータフロー:
 
-`CharacterMvpHud` and `MiningSkillProgression` use IMGUI. Gold objective/prompt/clear UI uses a separate Screen Space Overlay Canvas with TextMeshPro.
+```text
+FpsCharacterController ── movement / camera / cursor
+PickaxeViewModel ───────── swing visual and timing
+Main Camera + MiningTool ─ center ray
+    ├─ DestructiblePebble.TakeDamage()
+    │    └─ Fractured prefab生成 → Rigidbody有効化 → 2–4秒で削除
+    └─ VoxelRock.Mine()             [実装あり、現在Sceneには未配置]
+         └─ VoxelGrid減算 → MarchingCubes → Mesh + MeshCollider更新
+
+VoxelRock.DensityRemoved ───────────┐
+Pebble Broken events                ├─ GoldNuggetMVP露出 → 取得
+  → PebbleGoldExposureTrackerTest ──┘       └─ MVPGameManager → MVPUI → CLEAR
+
+VoxelRock / ClickableVoxelRock events → MiningSkillProgression
+```
+
+Runtimeコードは基本的に `Assembly-CSharp`、Editorコードは `Assembly-CSharp-Editor` へ入る。ゲーム用asmdef/asmrefはなく、確認できたasmdefは `Assets/ai.meshy/Editor/Script/MeshyAssembly.asmdef` のみ。
 
 ## Important Files
 
-### Project and configuration
+### 採掘・Voxel
 
-- `ProjectSettings/ProjectVersion.txt` — authoritative Unity version.
-- `Packages/manifest.json` — direct package dependencies.
-- `ProjectSettings/ProjectSettings.asset` — includes Active Input Handling.
-- `ProjectSettings/EditorBuildSettings.asset` — registered build scenes.
-- `Assets/InputSystem_Actions.inputactions` — Player/UI action maps; main Runtime scripts currently poll devices directly instead of using `PlayerInput`.
+- `Assets/BornToDig/VoxelRock/Scripts/MiningTool.cs` — Main Camera中央Rayから採掘入力を処理し、DestructiblePebbleまたはVoxelRockへ通知する。
+- `Assets/BornToDig/VoxelRock/Scripts/VoxelRock.cs` — 元MeshのVoxel化、採掘、ランタイムMesh/Collider更新、密度サンプルAPI、`DensityRemoved` event。
+- `Assets/BornToDig/VoxelRock/Scripts/VoxelGrid.cs` — 密度グリッド、トリリニアサンプル、勾配、球状密度減算。
+- `Assets/BornToDig/VoxelRock/Scripts/VoxelMeshVoxelizer.cs` — 閉じた元Meshから密度グリッドを生成する。
+- `Assets/BornToDig/VoxelRock/Scripts/MarchingCubes.cs` — 密度グリッドから三角形MeshDataを生成する。
+- `Assets/BornToDig/VoxelRock/Editor/VoxelRockMvpSceneBuilder.cs` — VoxelRock MVP Sceneを再生成するEditorツール。既存Sceneを上書きし得る。
+- `Assets/BornToDig/VoxelRock/Editor/VoxelRockFpsCompatibility.cs` — FPS統合とCamera/AudioListener/照準の重複防止。
+- `Assets/BornToDig/VoxelRock/Editor/VoxelRockMvpVerifier.cs` — VoxelRock採掘スモークテスト。現在SceneにVoxelRockがないため、そのままでは前提不一致。
 
-### Voxel mining Runtime
+### 破壊可能Pebble
 
-- `Assets/BornToDig/VoxelRock/Scripts/MiningTool.cs` — camera-center mining input, interval gate, raycast, and `VoxelRock.Mine()` call.
-- `Assets/BornToDig/VoxelRock/Scripts/VoxelRock.cs` — source-model voxelization, runtime mesh/collider rebuild, density removal event, and world-density query API.
-- `Assets/BornToDig/VoxelRock/Scripts/VoxelGrid.cs` — scalar density storage, trilinear sampling, gradient sampling, and spherical carving.
-- `Assets/BornToDig/VoxelRock/Scripts/VoxelMeshVoxelizer.cs` — fills the density grid from the closed source mesh.
-- `Assets/BornToDig/VoxelRock/Scripts/MarchingCubes.cs` — converts the scalar field to runtime mesh data.
+- `Assets/BornToDig/DestructiblePebbles/Runtime/DestructiblePebble.cs` — HP、破壊Prefab生成、打撃Impulse/Torque、`Broken` event。
+- `Assets/BornToDig/DestructiblePebbles/Runtime/FracturedPebbleInstance.cs` — 破片Rootを2–4秒後に削除する。
+- `Assets/BornToDig/DestructiblePebbles/Editor/DestructiblePebbleInstaller.cs` — A/B/CのIntact/Fractured Prefab生成とScene配置。再実行は既存Assetを更新し得る。
+- `Assets/BornToDig/DestructiblePebbles/Editor/DestructiblePebbleVerifier.cs` — 単体PebbleのEdit/Play検証。
+- `Assets/BornToDig/DestructiblePebbles/Test/Editor/PebbleRockTestGenerator.cs` — Seed `20260818` でA/B/C各44、計132個のテスト集合を生成する。
+- `Assets/BornToDig/DestructiblePebbles/Test/Editor/PebbleRockTestVerifier.cs` — 集合構成、参照、掘削、破片寿命、金塊取得/CLEARのEdit/Play検証。
+- `Assets/BornToDig/DestructiblePebbles/Test/Runtime/PebbleGoldExposureTrackerTest.cs` — 金塊付近のPebbleの `Broken` eventを監視し、50%破壊で既存金塊へ露出率を通知するテスト専用bridge。
 
-### Player and mining skill Runtime
+### お宝・UI
 
-- `Assets/FpsCharacterMVP/Runtime/FpsCharacterController.cs` — CharacterController-based FPS and cursor state.
-- `Assets/FpsCharacterMVP/Runtime/PickaxeViewModel.cs` — visual pickaxe construction/swing; interval can be updated by the skill system.
-- `Assets/FpsCharacterMVP/Runtime/DwarfVisualSlot.cs` — optional future character-visual Prefab slot; currently unassigned in the MVP scene.
-- `Assets/FpsCharacterMVP/Runtime/CharacterMvpHud.cs` — IMGUI controls help and crosshair.
-- `Assets/MiningSkillMVP/Runtime/MiningSkillProgression.cs` — auto-bootstrapped mining points, speed upgrades, skill UI, and compatibility with current/legacy rocks.
+- `Assets/BornToDig/GoldNuggetMVP/Runtime/GoldNuggetMVP.cs` — Voxel密度または外部報告から露出を判定し、中央注視・距離・E入力で取得する。
+- `Assets/BornToDig/GoldNuggetMVP/Runtime/MVPGameManager.cs` — 取得数、0.75秒後のCLEAR確定、UI通知。
+- `Assets/BornToDig/GoldNuggetMVP/Runtime/MVPUI.cs` — TMPによる目的、取得prompt、CLEAR表示と日本語font割当。
+- `Assets/BornToDig/GoldNuggetMVP/Editor/GoldNuggetMvpInstaller.cs` — PrefabとScene構成を再生成する。既存調整を上書きし得る。
+- `Assets/BornToDig/GoldNuggetMVP/Editor/GoldNuggetMvpVerifier.cs` — 金塊の埋没/露出/注視/取得/UI/CLEARを検証する。
 
-### Treasure and UI Runtime
+### 環境テスト
 
-- `Assets/BornToDig/GoldNuggetMVP/Runtime/GoldNuggetMVP.cs` — exposure sampling, targeting, E/gamepad pickup, and collection events.
-- `Assets/BornToDig/GoldNuggetMVP/Runtime/MVPGameManager.cs` — one-item count and delayed clear state.
-- `Assets/BornToDig/GoldNuggetMVP/Runtime/MVPUI.cs` — TextMeshPro objective, prompt, clear panel, and runtime Japanese font asset.
+- `Assets/PurePoly/Mining_Pack/` — PurePoly Mining Packのインポート済み素材一式。既存のゲームプレイSceneとは分離して扱う。
+- `Assets/BornToDig/EnvironmentIntegration/Editor/PurePolyMiningPackEnvironmentSceneBuilder.cs` — PurePoly Prefabから独立した視覚確認Sceneを生成するEditorツール。配置物をIgnore Raycast Layerへ設定し、Colliderを無効化する。
+- `Assets/BornToDig/EnvironmentIntegration/Scenes/PurePolyMiningPackEnvironmentTest.unity` — 地面、岩、洞窟、植生、確認用Camera/Lightだけを持つ環境素材の視覚確認Scene。`VoxelRockMVP` を置換するゲームプレイSceneではない。
 
-### Editor tools and validation
+### プレイヤー・入力・Skill
 
-- `Assets/BornToDig/VoxelRock/Editor/VoxelRockMvpSceneBuilder.cs` — creates the voxel MVP scene; can overwrite current tuning.
-- `Assets/BornToDig/VoxelRock/Editor/VoxelRockFpsCompatibility.cs` — integrates FPS and enforces a single camera/listener/crosshair arrangement.
-- `Assets/BornToDig/VoxelRock/Editor/VoxelRockMvpVerifier.cs` — voxel generation, collider, repeated carving, penetration, and FPS-compatibility smoke verifier.
-- `Assets/FpsCharacterMVP/Editor/FpsCharacterBuilder.cs` — builds the FPS object and Prefab; do not rerun casually on an adjusted player.
-- `Assets/BornToDig/GoldNuggetMVP/Editor/GoldNuggetMvpInstaller.cs` — creates/installs gold assets and scene setup; can overwrite scene tuning.
-- `Assets/BornToDig/GoldNuggetMVP/Editor/GoldNuggetMvpVerifier.cs` — Edit Mode and Play Mode verification for treasure/UI plus existing FPS/mining.
-
-### Legacy and auxiliary code
-
-- `Assets/Scripts/ClickableVoxelRock.cs` — legacy 32³ bool-grid rock with exposed-face cube mesh; not active in the current MVP scene.
-- `Assets/Scripts/FlyCameraController.cs` — legacy test camera; not active in the current MVP scene.
-- `Assets/ai.meshy/` — Meshy Editor integration, outside the core mining loop.
-- `Assets/TutorialInfo/` and root `Readme.asset` — Unity template-derived auxiliary content.
+- `Assets/FpsCharacterMVP/Runtime/FpsCharacterController.cs` — CharacterControllerによる移動、視点、ジャンプ、スプリント、カーソル制御。
+- `Assets/FpsCharacterMVP/Runtime/PickaxeViewModel.cs` — ツルハシ表示と連続スイング。採掘判定は持たない。
+- `Assets/FpsCharacterMVP/Runtime/DwarfVisualSlot.cs` — 将来の外見Prefab用slot。
+- `Assets/FpsCharacterMVP/Runtime/CharacterMvpHud.cs` — IMGUIの操作説明と照準。
+- `Assets/MiningSkillMVP/Runtime/MiningSkillProgression.cs` — Voxel採掘量からSkill Point、Tab画面、採掘/スイングinterval同期。Sceneロード後にbootstrapが自動生成する。
+- `Assets/InputSystem_Actions.inputactions` — Player/UI Action Map。ただし主要Runtimeは `Keyboard.current`、`Mouse.current`、`Gamepad.current` を直接参照する。
 
 ## Scenes
 
-- `Assets/BornToDig/VoxelRock/Scenes/VoxelRockMVP.unity` — current MVP scene. Key roots/components: `Voxel Rock`, `MVP_FPS_Player`, `Main Camera` + `MiningTool`, `GoldNugget_MVP`, `MVP_GameManager`, `MVP_UI`, `Ground`, and `Directional Light`.
-- `Assets/Scenes/SampleScene.unity` — older/separate test scene containing legacy approaches; do not treat it as the current MVP.
+- `Assets/BornToDig/VoxelRock/Scenes/VoxelRockMVP.unity` — 現在の開発対象Scene。working treeではVoxelRockを外し、`PebbleRockCluster_Test`、FPS、Main Camera/MiningTool、金塊、Manager、TMP UI、Ground、Directional Lightを持つ。
+- `Assets/Scenes/SampleScene.unity` — 旧32³ `ClickableVoxelRock` と `FlyCameraController` を含む別テスト系。現行FPS/Pebble Sceneと混同しない。
+- `Assets/BornToDig/EnvironmentIntegration/Scenes/PurePolyMiningPackEnvironmentTest.unity` — PurePoly Mining Packの背景素材だけを確認する独立Scene。FPS、採掘、Pebble、金塊フローは含まない。
 
-Current Build Settings registers only `Assets/Scenes/SampleScene.unity`. Open `VoxelRockMVP` explicitly for current MVP verification.
+Build Settingsに登録されているSceneは現在 `SampleScene` のみ。`VoxelRockMVP` を確認する場合は明示的に開く。
 
 ## Prefabs
 
-- `Assets/FpsCharacterMVP/Prefabs/MVP_FPS_Player.prefab` — player root, `CameraPivot`, `Main Camera`, `PickaxeViewModel`, simple `Handle`/`Metal Head`/`Left Tip` pickaxe parts, and future dwarf model root.
-- `Assets/BornToDig/GoldNuggetMVP/Prefabs/GoldNugget_MVP.prefab` — Layer 2 (`Ignore Raycast`), trigger `BoxCollider`, no Rigidbody, gold behaviour, and visual model child.
-
-Related source assets:
-
-- Rock: `Assets/BornToDig/VoxelRock/Models/BORN_TO_DIG_Rock.fbx`, `Assets/BornToDig/VoxelRock/Materials/BORN_TO_DIG_Rock.mat`, and original `Assets/BornToDig/VoxelRock/Source/BORN_TO_DIG_Rock.glb`.
-- Gold: `Assets/BornToDig/GoldNuggetMVP/Models/GoldNugget_MVP.fbx` exported from `お宝.blend`, `Assets/BornToDig/GoldNuggetMVP/Materials/GoldNugget_MVP.mat`, and Japanese font `Assets/BornToDig/GoldNuggetMVP/Fonts/NotoSansJP-VF.ttf`.
-- TextMeshPro base resources: `Assets/TextMesh Pro/`.
-
-## Player
-
-- `MVP_FPS_Player` uses `CharacterController` and an existing child `Main Camera` under `CameraPivot`.
-- Keyboard controls: WASD/arrow movement, mouse look, Space jump, left Shift sprint, Esc release cursor, left click recapture.
-- Gamepad movement/look/jump/sprint are read directly from the current gamepad.
-- `DwarfVisualSlot` keeps a future visual Prefab separate from movement, camera, and mining; the scene slot is currently empty.
-- `FpsCharacterBuilder` can inherit an existing Camera when generating the FPS setup, but can also rewrite the player/Prefab and must not be rerun casually.
+- `Assets/FpsCharacterMVP/Prefabs/MVP_FPS_Player.prefab` — FPS Player、CameraPivot、Main Camera、Pickaxe、HUD/照準の基礎構成。
+- `Assets/BornToDig/GoldNuggetMVP/Prefabs/GoldNugget_MVP.prefab` — Layer `Ignore Raycast`、Trigger Collider、`GoldNuggetMVP`。Rigidbodyなし。
+- `Assets/BornToDig/DestructiblePebbles/Prefabs/Rock_A_Intact.prefab`、`Rock_B_Intact.prefab`、`Rock_C_Intact.prefab` — 通常表示、Collider、`DestructiblePebble`。常設Rigidbodyなし。
+- 対応する `Rock_A/B/C_Fractured.prefab` — 各5破片、Convex MeshCollider、待機中Kinematic Rigidbody、`FracturedPebbleInstance`。
+- `Assets/BornToDig/DestructiblePebbles/Test/Prefabs/PebbleRockCluster_Test.prefab` — Intact 132個だけで構成するテスト専用集合。通常時Rigidbodyなし。
 
 ## Mining System
 
-- Main attack input is held left mouse or gamepad right trigger.
-- `PickaxeViewModel` animates at a default 0.48-second interval.
-- `MiningTool` performs the actual raycast at its interval and ignores triggers.
-- The current scene has tuned `MiningTool` values: distance `15.186258`, radius `0.585`, strength `1.528`, interval `0.48`, center ray enabled, its own crosshair disabled, and previous-cursor-lock required.
-- Cursor recapture clicks are gated so they do not mine immediately.
-- `MiningSkillProgression` is created after scene load when absent. It consumes `DensityRemoved`, opens with Tab/gamepad Start, pauses time, blocks FPS input, and updates both mining and swing intervals.
+`PickaxeViewModel` は見た目とスイング、`MiningTool` は判定を担当する。左クリックholdまたはGamepad Right Triggerを一定intervalで読み、Main Camera中央からRaycastする。
+
+現在Sceneの `MiningTool` 値:
+
+- Distance: `15.186258`
+- Radius: `0.585`
+- Strength: `1.528`
+- Interval: `0.48`
+- `showCrosshair: false`（HUD側の照準を使用）
+- `requirePreviouslyLockedCursor: true`
+
+Hit先が `DestructiblePebble` の子なら `TakeDamage()`、それ以外で `VoxelRock.RockCollider` と一致すれば `VoxelRock.Mine()` を呼ぶ。カーソル再ロックclickを誤採掘にしないgateを維持する。
 
 ## Rock / Voxel System
 
-- `VoxelRock.Initialize()` transforms the readable source mesh into rock-local space, expands bounds, fills a `48³` `VoxelGrid`, hides the source renderers/colliders, and builds the runtime mesh.
-- Initialization requires the imported source mesh to be Read/Write enabled. Hiding the source only disables its renderers/colliders; it does not delete unrelated GameObjects.
-- Current scene values: resolution `48`, iso level `0.5`, bounds padding `0.06`, rock scale `(5,5,5)`.
-- `VoxelMeshVoxelizer.FillFromMesh()` fills the closed-mesh interior with density `1`; empty space is `0`.
-- `VoxelRock.Mine()` calls `VoxelGrid.CarveSphereAmount()` in world space. Mesh/collider rebuild and `DensityRemoved` occur only when density changed.
-- `VoxelRock.SampleDensityWorld()` and `IsSolidAtWorldPoint()` are the public read-only bridge used by treasure exposure logic. Reuse these instead of introducing a second voxel data owner.
+Voxel方式は、元岩Meshを `VoxelMeshVoxelizer` で密度化し、`MarchingCubes` でランタイムMeshを生成する。`VoxelRock.Mine()` が球状に密度を減算し、変更時だけMeshとMeshColliderを更新する。
+
+コード上の既定値はResolution `48`、Iso Level `0.5`、Bounds Padding `0.06`。元Modelは `Assets/BornToDig/VoxelRock/Models/BORN_TO_DIG_Rock.fbx`。このモデルはRead/Writeとimport scaleがVoxel生成に影響する。
+
+現在のworking-tree SceneにはVoxelRockインスタンスがない。Voxel方式をSceneへ戻す場合は、Pebbleテストとの共存/置換意図、金塊の `voxelRock` 参照、採掘Ray遮蔽を確認する。
 
 ## Destruction System
 
-Current destruction is the `VoxelRock` density-carving and runtime mesh/collider rebuild described above.
+Intact PebbleのHP既定値は `2.5`。破壊時に対応するFractured Prefabを同じ見かけのtransformで生成し、5個のRigidbodyをnon-kinematicにして弱いImpulse/Torqueを与え、Rootを既定3秒で削除する。大量配置ではIntactのみを置き、FracturedやRigidbodyを事前常設しない。
 
-No file, type, or asset named `DestructiblePebble` (or containing `Pebble`) was found in the project outside generated Unity directories on 2026-08-18. Do not assume a DestructiblePebble system exists on this branch; search again if the branch changes or a future task mentions it.
+現在の集合テストはA/B/C各44個、計132個。Scene Rootは `(7.35, 1.08, -3.05)`、金塊はおよそ `(7.49, 1.05, -3.13)`。`PebbleGoldExposureTrackerTest` は半径 `0.92` 内だけをevent購読し、破壊率 `0.5` を露出閾値としている。
+
+`Assets/BornToDig/DestructiblePebbles/Test` は本番システムではなく、評価用に隔離された範囲である。
 
 ## Treasure System
 
-- One independent `GoldNugget_MVP` instance is placed inside the rock at approximately `(0.738, 1.690, -3.427)`.
-- The Edit Mode verifier expects the gold center and sampled surface to start inside solid rock; this is the confirmed initial-burial contract.
-- The gold Prefab is on `Ignore Raycast` so it does not block `MiningTool`, whose Physics raycast ignores triggers.
-- `GoldNuggetMVP` samples 14 directions just outside its collider after startup and each density-removal event. Exposure becomes permanent at the configured 50% empty-sample threshold.
-- Collection requires exposure, distance at most `2.75m`, a camera-center ray hit against the trigger, and E/gamepad West.
-- Collection disables renderers and collider, emits `Collected`, updates count to `1`, and shows clear after `0.75s`. It does not change scene or quit the app.
-- Inventory, multiple treasure items, persistence, save data, and scene transitions are not implemented in this MVP.
+`GoldNuggetMVP` は2つの露出入力を扱う。
+
+- Voxel方式: Collider周囲14方向を密度sampleし、既定50%が空間なら露出。
+- Pebble test方式: `ReportExternalExposure()` が受け取った最大露出率を保持し、50%で露出。
+
+露出後、Main Camera中心RayがTriggerへ当たり、距離が `2.75m` 以内ならpromptを出す。EまたはGamepad buttonWestで取得し、Renderer/Colliderを無効化する。`MVPGameManager` が1個取得を確定し、0.75秒後に `MVP CLEAR` を表示する。Inventory、複数お宝、Save、Scene遷移は未実装。
+
+## Player
+
+`MVP_FPS_Player` はCharacterController方式。WASD/矢印移動、Mouse look、Space jump、Left Shift sprint、Escでcursor解除、左clickで再取得。`CameraPivot` 子のMain Cameraに `MiningTool` とAudioListenerが付く。
+
+有効なFPS Player、Main Camera、AudioListener、照準は各1つを維持する。`MiningSkillBootstrap` も重複Scene配置しない。
 
 ## UI
 
-- `CharacterMvpHud`: IMGUI help and the single gameplay crosshair.
-- `MiningSkillProgression`: IMGUI compact mining status and Tab skill screen.
-- `MVP_UI`: Screen Space Overlay Canvas with `ObjectiveText`, `PickupPrompt`, and `ClearPanel` containing `ClearTitle`/`ClearSubtitle`.
-- `MVPUI` creates a runtime TMP font asset from Noto Sans JP and sets the Japanese objective/prompt/clear strings.
-- Current strings are `金塊を探す 0 / 1`, `E 金塊を拾う`, `金塊を入手！ 1 / 1`, `MVP CLEAR`, and `金塊を発見しました！`.
-- `MiningTool.showCrosshair` is disabled in the MVP scene so the FPS HUD remains the single crosshair.
+- `CharacterMvpHud`: IMGUIの操作説明と照準。
+- `MiningSkillProgression`: IMGUIのSkill HUD/Tab画面。
+- `MVP_UI`: Screen Space Overlay Canvas。TMPの `ObjectiveText`、`PickupPrompt`、`ClearPanel`、`ClearTitle`、`ClearSubtitle`。
+- 日本語Font: `Assets/BornToDig/GoldNuggetMVP/Fonts/NotoSansJP-VF.ttf` からRuntime TMP fontを生成する。
 
-## Input
-
-- `Assets/InputSystem_Actions.inputactions` defines `Player` and `UI` maps, including Move, Look, Attack, Interact, Crouch, Jump, Previous, Next, and Sprint actions.
-- Current main Runtime scripts directly read `Keyboard.current`, `Mouse.current`, and `Gamepad.current`; they do not use `PlayerInput` or a generated action wrapper.
-- Conditional legacy input remains in `MiningTool`, but current Project Settings select the New Input System.
-- A migration to action-driven input would be a separate architectural change, not a local feature edit.
+HUDとMVP_UIは責務が異なるため、片方を重複と誤認して削除しない。
 
 ## Important Decisions
 
-- Keep visual pickaxe animation separate from mining collision/density logic.
-- Keep `VoxelRock` as the sole owner of current voxel density and expose narrow read-only queries/events for other systems.
-- Keep treasure as an independent trigger object rather than embedding it into generated rock mesh data.
-- Keep a single enabled Camera, AudioListener, and gameplay crosshair in the MVP scene.
-- Keep the future dwarf visual replaceable through `DwarfVisualSlot` without coupling it to movement, camera, or mining.
-- Keep the mining-skill system compatible with both current `VoxelRock.DensityRemoved` and legacy `ClickableVoxelRock.VoxelsRemoved` until that compatibility is deliberately removed.
-- Keep Editor builders/installers separate from Runtime; treat them as potentially destructive regeneration tools.
+- 採掘判定とツルハシ見た目を分離する。
+- VoxelRockは既存密度グリッドを単一source of truthにし、お宝露出用に小さなsample APIを公開する。
+- Pebble方式でも既存のGold/Manager/UI/CLEARを再利用し、露出だけをtest bridgeから渡す。
+- Pebble破壊はevent-driven。露出判定を毎frame全探索しない。
+- Intactは軽量、Fracturedは破壊時だけ生成して短時間で削除する。
+- FPS/Camera/AudioListener/照準の重複を避ける。
+- New Input Systemのdevice直接参照を既存MVP方式として維持し、全面的なAction Asset移行は別判断とする。
+- PurePoly環境素材の確認SceneはゲームプレイSceneから分離し、背景用インスタンスはIgnore RaycastかつCollider無効のdisplay-onlyとする。
 
 ## Known Problems
 
-- `VoxelRockMVP.unity` is not registered in Build Settings; only `SampleScene.unity` is registered.
-- Scene-tuned mining values differ substantially from `VoxelRockMvpSceneBuilder`/README defaults. Rebuilding the scene can reset the current feel and gold integration.
-
-No current Unity Console status was assumed during the static investigation. Record new confirmed errors here only when reproduced and still relevant.
+- 現在の `VoxelRockMVP.unity` にはVoxelRockがないため、`VoxelRockMvpVerifier.VerifyBatch()` はScene前提を満たさず失敗する。Voxel方式の回帰検証は専用Sceneを用意するか、意図を確認して現Scene構成を戻す必要がある。
+- `MiningSkillProgression` は `VoxelRock.DensityRemoved` と旧 `ClickableVoxelRock.VoxelsRemoved` だけを購読する。DestructiblePebbleの破壊ではSkill Pointが増えない。
+- Build Settingsは `SampleScene` だけを登録しているため、Player buildが現在のPebble統合Sceneを直接開始しない。
+- 既存の検証記録ではUnity 6000.5の `Rock_A_Fragment_01` Convex Mesh生成時に256 polygon上限のpartial hull警告が報告されている。現ターンでは再実行していないため、再現性と物理影響は未確認。
 
 ## Technical Debt
 
-- Project-owned game code has no dedicated Runtime/Editor asmdefs, so most code uses the broad default assemblies.
-- No project-owned NUnit/Test Runner tests were found. Validation depends on custom Editor verifier entry points and manual Play Mode checks.
-- UI is split across two IMGUI systems and a TextMeshPro Canvas.
-- Main gameplay input bypasses the existing Input Actions asset and directly polls devices.
-- `MiningSkillProgression` retains current and legacy rock paths, increasing compatibility surface.
-
-These are recorded facts, not authorization for unrelated refactoring.
+- ゲームコードにasmdefがなく、ほぼ全Runtime/Editorコードが大きな既定assemblyへ入る。
+- IMGUI HUDとTMP Canvasが併存する。現在は役割分担されているが、将来UIを統一する場合は入力pause、照準、Fontの責務を整理する必要がある。
+- Scene/Prefab builderとinstallerは便利だが、手調整済みScene/Prefabを上書きできる。冪等性と差分保護は保証されていない。
+- Pebble集合と露出bridgeは `Test` 配下であり、本番化の設計・性能条件は未確定。
 
 ## Do Not Break
 
-- `MiningTool` must continue hitting only the current `VoxelRock.RockCollider`; new triggers/colliders must not steal the mining ray.
-- `MeshFilter.sharedMesh` and `MeshCollider.sharedMesh` must stay synchronized after carving.
-- `VoxelRock.DensityRemoved` feeds both mining progression and gold exposure.
-- `MiningSkillProgression` must not be duplicated; its Bootstrap creates one when missing.
-- `MiningTool` and `PickaxeViewModel` mining/swing intervals are intentionally synchronized by the skill system.
-- Gold scene references to `VoxelRock`, `Main Camera`, `MVPGameManager`, and `MVPUI` must remain valid.
-- Keep exactly one enabled scene Camera, AudioListener, and gameplay crosshair.
-- Do not enable `FlyCameraController` with `FpsCharacterController`, or activate `ClickableVoxelRock` in `VoxelRockMVP`.
-- Do not rerun scene builders/installers without comparing the existing scene/prefab and preserving tuned values and integrations.
-- Preserve `.meta` files and GUID-based references when moving or renaming Unity assets.
+- `MiningTool` のVoxel/Pebble振り分けとcursor gate。
+- Voxelの密度減算後にMeshFilterとMeshColliderが同一更新Meshを参照すること。
+- Gold取得後の再取得防止、Managerの1個カウント、0.75秒後のCLEAR、UI参照。
+- Pebble Intactに常設Rigidbody/破片を入れないこと、Fracturedを寿命削除すること。
+- Pebble testの金塊は `voxelRock: null` で、trackerから外部露出を受けること。
+- 単一FPS Player、Main Camera、AudioListener、照準と、Main Camera上のMiningTool。
+- `.meta`/GUID、Model import settings、Prefab/Sceneのserialized references。
+- PurePoly確認Sceneと `VoxelRockMVP` の役割分離、および背景用PurePolyインスタンスのIgnore Raycast/Collider無効設定。
 
 ## Verification Methods
 
-### Available automated/custom checks
+### 基本
 
-- Unity import/compile: open the project in Unity 6000.5.7f1 or run that Editor in batch mode and inspect the exit code/log for compiler and import errors.
-- Voxel Edit Mode smoke verifier: `BornToDig.EditorTools.VoxelRockMvpVerifier.VerifyBatch`.
-- Gold Edit Mode verifier: `BornToDig.EditorTools.GoldNuggetMvpVerifier.VerifyBatch`.
-- Gold Play Mode verifier: `BornToDig.EditorTools.GoldNuggetMvpPlayModeVerifier.VerifyBatch`.
+1. Unity EditorでC# compile完了を待ち、Consoleの赤Errorを0にする。
+2. 対象Scene/PrefabでMissing Script、Missing Reference、重複、Layer/Tag、Collider/Rigidbody、SerializedFieldを確認する。
+3. Play Modeで変更対象と近接する既存ループを確認する。
+4. `git diff --check`、`git diff --stat`、`git status --short` で意図した差分だけか確認する。
 
-The verifier methods are implemented under the Editor folders and can be used with Unity `-executeMethod`. The gold Play Mode verifier enters Play Mode and requires its completion log, not just process startup.
+### プロジェクト固有Verifier
 
-### Required change-sensitive checks
+Unityの `-executeMethod` で呼べるpublic static entrypoint:
 
-- Compile/Console: no C# compile errors and no new red Console errors.
-- Scene/Prefab: Missing Script, Missing Reference, serialized links, Prefab overrides, Camera/AudioListener/crosshair duplication.
-- Physics: Collider type/enabled state, Rigidbody need, Trigger, Layer, Tag, ray obstruction, and collider/mesh synchronization.
-- Play Mode when relevant: FPS movement/look/jump/cursor, pickaxe swing, repeated mining/deepening/penetration, gold exposure/target/pickup, UI clear, and mining-skill pause/upgrade.
-- Git: `git status`, `git diff --stat`, `git diff --name-status`, and targeted diff review. Confirm no unintended `.unity`, `.prefab`, `.meta`, ProjectSettings, import setting, or binary changes.
+- `BornToDig.EditorTools.VoxelRockMvpVerifier.VerifyBatch` — VoxelRock生成/採掘/FPS互換。現在Sceneとは前提不一致。
+- `BornToDig.EditorTools.GoldNuggetMvpVerifier.VerifyBatch` — Gold Edit Mode。
+- `BornToDig.EditorTools.GoldNuggetMvpPlayModeVerifier.VerifyBatch` — Gold Play Mode。
+- `BornToDig.EditorTools.DestructiblePebbleVerifier.VerifyAllBatch` — A/B/C Prefab Edit Mode。
+- `BornToDig.EditorTools.DestructiblePebblePlayModeVerifier.VerifyRockABatch` — Pebble Play Mode。
+- `BornToDig.EditorTools.PebbleRockTestVerifier.VerifyEditModeBatch` — Pebble集合Edit Mode。
+- `BornToDig.EditorTools.PebbleRockTestPlayModeVerifier.VerifyPlayModeBatch` — Pebble集合Play Mode。
 
-Do not claim any check that was not actually run. If Unity cannot be launched, report static checks and remaining Play Mode/Console work separately.
+これらはSceneを開く、Play Modeへ入る、またはAssetを読み込む。実行前にentrypointと現在Scene前提を確認する。Installer/Builder/Generatorは検証ではなくAssetを更新するため、無断で代用しない。
+
+Test Framework packageは存在するが、NUnit用test asmdef/test fileは確認できていない。compile/YAML確認とEditor/Play verifierを区別して報告する。
 
 ## Recent Significant Changes
 
-- **2026-08-18 (`8d8b2a1`)**: Added the gold nugget MVP, UI, Editor installer/verifiers, density query API, and integrated the treasure loop into `VoxelRockMVP`.
-- **2026-08-18 (`163063d`)**: Added mining Skill Points/speed progression and interval synchronization across current and legacy mining paths.
-- **2026-08-17 (`bceacef`)**: Integrated the FPS player with the voxel-rock MVP and added compatibility/smoke verification.
-- **2026-08-17 (`5c27439`)**: Added the FPS character Runtime, builder, HUD, pickaxe view model, and visual slot.
-- **2026-08-18 (working tree setup)**: Added the Codex 4-layer knowledge system: stable rules, current Project State, project Skills, and Memory placement guidance. No game assets or game Runtime code were intentionally changed.
+2026-08-18〜19のworking treeで確認した未コミット変更:
+
+- `MiningTool` にDestructiblePebbleへのdamage dispatchを追加。
+- `GoldNuggetMVP` に外部露出率bridgeを追加。
+- `VoxelRockMVP.unity` からVoxelRockインスタンスを外し、`PebbleRockCluster_Test` とその内部の金塊へ置換。
+- `Assets/BornToDig/DestructiblePebbles/` 一式を追加。Runtime、Editor installer/verifier、A/B/C Prefab/Model、test generator/verifierを含む。
+- `Assets/PurePoly/Mining_Pack/` をインポートし、独立した `PurePolyMiningPackEnvironmentTest.unity` と生成・プレビュー用Editor builderを追加。
+
+既存AGENTSにはPebble Play検証とVoxel smoke検証のPASS記録があったが、このProject State作成時にはUnity検証を再実行していない。特にVoxel smoke verifierは現在Sceneと前提がずれているため、過去結果を現在結果として扱わない。
