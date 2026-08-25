@@ -83,6 +83,13 @@ Runtimeコードは基本的に `Assembly-CSharp`、Editorコードは `Assembly
 - `Assets/BornToDig/EnvironmentIntegration/Editor/PurePolyMiningPackEnvironmentSceneBuilder.cs` — PurePoly Prefabから独立した視覚確認Sceneを生成するEditorツール。配置物をIgnore Raycast Layerへ設定し、Colliderを無効化する。
 - `Assets/BornToDig/EnvironmentIntegration/Scenes/PurePolyMiningPackEnvironmentTest.unity` — 地面、岩、洞窟、植生、確認用Camera/Lightだけを持つ環境素材の視覚確認Scene。`VoxelRockMVP` を置換するゲームプレイSceneではない。
 
+### Visual Look
+
+- `Assets/BornToDig/VisualLook/Profiles/BTD_OutdoorWarm_v1.asset` — ACES、控えめなBloom、Color Adjustments、White Balance、Vignetteをまとめた屋外用の共有Volume Profile。
+- `Assets/BornToDig/VisualLook/Lighting/BTD_OutdoorWarmSky_v1.mat` — 暖色Key Lightと対比する、やや寒色寄りの屋外Sky基準。
+- `Assets/BornToDig/VisualLook/Editor/BTDVisualLookV1.cs` — 共有Lookアセットの生成、`Map01_Area01`への限定適用、参照・ピンクMaterial検証を行うEditorツール。
+- `Assets/BornToDig/VisualLook/Docs/BTD_VISUAL_STANDARD_V1.md` — 屋外・室内・洞窟へ展開する際の色温度、Lighting、Volume、Material運用ルール。
+
 ### プレイヤー・入力・Skill
 
 - `Assets/FpsCharacterMVP/Runtime/FpsCharacterController.cs` — CharacterControllerによる移動、視点、ジャンプ、スプリント、カーソル制御。
@@ -98,6 +105,12 @@ Runtimeコードは基本的に `Assembly-CSharp`、Editorコードは `Assembly
 - `Assets/BornToDig/VoxelRock/Scenes/VoxelRockMVP.unity` — 現在の開発対象Scene。working treeではVoxelRockを外し、`PebbleRockCluster_Test`、FPS、Main Camera/MiningTool、金塊、Manager、TMP UI、Ground、Directional Lightを持つ。
 - `Assets/Scenes/SampleScene.unity` — 旧32³ `ClickableVoxelRock` と `FlyCameraController` を含む別テスト系。現行FPS/Pebble Sceneと混同しない。
 - `Assets/BornToDig/EnvironmentIntegration/Scenes/PurePolyMiningPackEnvironmentTest.unity` — PurePoly Mining Packの背景素材だけを確認する独立Scene。FPS、採掘、Pebble、金塊フローは含まない。
+- `Assets/BornToDig/PrefabGallery/Scenes/PrefabGallery.unity` — `Assets`配下のPrefabをカテゴリ別に展示する比較専用Scene。2026-08-25生成時は7,058件を走査し、静的見た目重複・内部破片・Player本体・テスト集合の12件を除外して7,046件を配置。`MVP_FPS_Player`のScene instanceを`Area01_FPS_Player`として持ち、表示PrefabのColliderとMonoBehaviourはScene overrideで無効化する。元Prefab/Materialは変更せず、明確に非対応のShaderだけGallery専用複製Materialへinstance overrideする。
+
+PrefabGalleryの再生成・検証:
+
+- `Assets/BornToDig/PrefabGallery/Editor/PrefabGalleryBuilder.cs` — `BORN TO DIG > Build Prefab Gallery`、Edit検証、batch用Play検証を提供する。
+- `Assets/BornToDig/PrefabGallery/Reports/` — 配置・除外全件、カテゴリ集計、Gallery専用Material変換対応をCSV/JSONで保持する。
 
 Build Settingsに登録されているSceneは現在 `SampleScene` のみ。`VoxelRockMVP` を確認する場合は明示的に開く。
 
@@ -174,6 +187,8 @@ HUDとMVP_UIは責務が異なるため、片方を重複と誤認して削除�
 - FPS/Camera/AudioListener/照準の重複を避ける。
 - New Input Systemのdevice直接参照を既存MVP方式として維持し、全面的なAction Asset移行は別判断とする。
 - PurePoly環境素材の確認SceneはゲームプレイSceneから分離し、背景用インスタンスはIgnore RaycastかつCollider無効のdisplay-onlyとする。
+- Visual LookはACES、控えめなBloom、接地AO、暖色Key Lightと寒色寄りの環境色による奥行きを共通基準とし、エリア固有性は主に色温度・fog・ambientで作る。
+- 購入AssetのMaterialは一括変換せず、厚い形状はURP/LitまたはSimple Lit、薄板だけを必要に応じてDoubleSidedとする。
 
 ## Known Problems
 
@@ -226,6 +241,18 @@ Unityの `-executeMethod` で呼べるpublic static entrypoint:
 Test Framework packageは存在するが、NUnit用test asmdef/test fileは確認できていない。compile/YAML確認とEditor/Play verifierを区別して報告する。
 
 ## Recent Significant Changes
+
+2026-08-25のPrefab Gallery追加:
+
+- `Assets/BornToDig/PrefabGallery/`へ比較専用Scene、再生成Editorツール、Gallery専用Material複製、配置/除外/Shader診断レポートを追加。
+- 7,046 Prefabをカテゴリ別グリッドへ配置し、TextMeshProラベル、neutral daylight、平面床、FPS Playerを用意。元Prefab、元Material、Texture、Shader、ProjectSettings、URP設定、`Map01_Area01`は変更していない。
+- Edit検証は配置7,046、ラベル7,055、Camera/AudioListener各1、展示Collider 0、Missing Script/Material/invalid Shader 0でPASS。Play検証はPlayer移動、Camera/AudioListener各1、Runtime Error 0でPASS。
+
+2026-08-24のVisual Look v1追加:
+
+- `Map01_Area01`を基準Sceneとして、共有Volume ProfileとSky Materialを持つ`Assets/BornToDig/VisualLook/`を追加。
+- PC Rendererの既存SSAO（Intensity 0.4）は全Sceneへ影響するため変更せず、Map01固有のVolume、Directional Light、ambient、fogだけを調整。
+- 購入Material、ProjectSettings、global URP asset、Gameplay Component、既存配置は変更していない。
 
 2026-08-19の本番環境追加:
 

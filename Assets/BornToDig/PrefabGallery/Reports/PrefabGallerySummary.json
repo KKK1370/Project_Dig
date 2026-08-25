@@ -1,0 +1,173 @@
+{
+    "generatedUtc": "2026-08-25T07:01:40.0162263Z",
+    "unityVersion": "6000.5.7f1",
+    "scenePath": "Assets/BornToDig/PrefabGallery/Scenes/PrefabGallery.unity",
+    "playerPrefabPath": "Assets/FpsCharacterMVP/Prefabs/MVP_FPS_Player.prefab",
+    "scannedPrefabCount": 7058,
+    "placedPrefabCount": 7046,
+    "excludedPrefabCount": 12,
+    "galleryMaterialRepairUseCount": 1774,
+    "uniqueGalleryMaterialCount": 34,
+    "map01Area01Path": "Assets/BornToDig/Maps/Map01/Area01/Scenes/Map01_Area01.unity",
+    "map01Area01Sha256Before": "5171240C129BD306CB45B96476F16ED6F30CA376B5933C5EEEEB9F13AD90456E",
+    "map01Area01Sha256After": "5171240C129BD306CB45B96476F16ED6F30CA376B5933C5EEEEB9F13AD90456E",
+    "map01Area01Unchanged": true,
+    "categories": [
+        {
+            "name": "Vegetation",
+            "count": 367
+        },
+        {
+            "name": "Rocks",
+            "count": 1078
+        },
+        {
+            "name": "Mining",
+            "count": 409
+        },
+        {
+            "name": "Props",
+            "count": 2362
+        },
+        {
+            "name": "Furniture",
+            "count": 476
+        },
+        {
+            "name": "Buildings",
+            "count": 726
+        },
+        {
+            "name": "LightsFX",
+            "count": 425
+        },
+        {
+            "name": "Decorations",
+            "count": 306
+        },
+        {
+            "name": "Other",
+            "count": 897
+        }
+    ],
+    "subcategories": [
+        {
+            "name": "Buildings/Buildings",
+            "count": 726
+        },
+        {
+            "name": "Decorations/Decorations",
+            "count": 306
+        },
+        {
+            "name": "Furniture/Furniture",
+            "count": 476
+        },
+        {
+            "name": "LightsFX/LightsFX",
+            "count": 425
+        },
+        {
+            "name": "Mining/Carts",
+            "count": 45
+        },
+        {
+            "name": "Mining/MiningProps",
+            "count": 6
+        },
+        {
+            "name": "Mining/OreProps",
+            "count": 217
+        },
+        {
+            "name": "Mining/Pickaxes",
+            "count": 87
+        },
+        {
+            "name": "Mining/Workbenches",
+            "count": 54
+        },
+        {
+            "name": "Other/Other",
+            "count": 897
+        },
+        {
+            "name": "Props/Barrels",
+            "count": 34
+        },
+        {
+            "name": "Props/Crates",
+            "count": 27
+        },
+        {
+            "name": "Props/Fences",
+            "count": 11
+        },
+        {
+            "name": "Props/PropsOther",
+            "count": 1315
+        },
+        {
+            "name": "Props/Signs",
+            "count": 8
+        },
+        {
+            "name": "Props/Tools",
+            "count": 967
+        },
+        {
+            "name": "Rocks/Cliffs",
+            "count": 44
+        },
+        {
+            "name": "Rocks/RocksOther",
+            "count": 1022
+        },
+        {
+            "name": "Rocks/SmallRocksPebbles",
+            "count": 12
+        },
+        {
+            "name": "Vegetation/Bushes",
+            "count": 7
+        },
+        {
+            "name": "Vegetation/Flowers",
+            "count": 109
+        },
+        {
+            "name": "Vegetation/Grass",
+            "count": 28
+        },
+        {
+            "name": "Vegetation/Mushrooms",
+            "count": 44
+        },
+        {
+            "name": "Vegetation/PlantsOther",
+            "count": 104
+        },
+        {
+            "name": "Vegetation/Trees",
+            "count": 75
+        }
+    ],
+    "exclusionReasons": [
+        {
+            "name": "duplicate_static_visual",
+            "count": 7
+        },
+        {
+            "name": "internal_part_prefab",
+            "count": 3
+        },
+        {
+            "name": "player_prefab",
+            "count": 1
+        },
+        {
+            "name": "test_or_sample_prefab",
+            "count": 1
+        }
+    ]
+}
