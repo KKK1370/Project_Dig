@@ -1,0 +1,4 @@
+interface:
+  display_name: "BORN TO DIG Validation"
+  short_description: "Validate BORN TO DIG Unity changes end to end"
+  default_prompt: "Use $born-to-dig-validation to validate BORN TO DIG changes and report verified and unverified checks."
